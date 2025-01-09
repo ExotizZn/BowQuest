@@ -1,17 +1,23 @@
-# Variables
-CC = gcc
-CFLAGS = $(shell sdl2-config --cflags)
-LDFLAGS = $(shell sdl2-config --libs)
+# Nom de l'exécutable
+TARGET = main
+
+# Nom du fichier source
 SRC = src/main.c
-OUT = main
 
-# Règles
-all: $(OUT)
+# Options de compilation
+CFLAGS = `pkg-config sdl3 --cflags`
+LDFLAGS = `pkg-config sdl3 --libs`
 
-$(OUT): $(SRC)
-	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS)
+# Règle par défaut
+all: $(TARGET)
 
+# Règle pour construire l'exécutable
+$(TARGET): $(SRC)
+	gcc -o $@ $< $(CFLAGS) $(LDFLAGS)
+
+# Nettoyer les fichiers générés
 clean:
-	rm -f $(OUT)
+	rm -f $(TARGET)
 
-.PHONY: all clean
+# Forcer la recompilation
+rebuild: clean all
