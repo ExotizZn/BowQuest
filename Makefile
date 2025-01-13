@@ -1,22 +1,32 @@
-# Nom de l'exécutable
-TARGET = main
+CC       := gcc
+CFLAGS   := -O3 `pkg-config sdl3 --cflags --libs` -lSDL3_image
+SRC      := ./src
+INCLUDE  := ./include
+OBJFILES := main.o camera.o player.o enemy.o projectile.o utils.o
+TARGET   := main
 
-# Nom du fichier source
-SRC = src/main.c
+all: $(TARGET) clean
 
-# Options de compilation
-CFLAGS = `pkg-config sdl3 --cflags --libs`
+${TARGET}: ${OBJFILES}
+	${CC} ${OBJFILES} -o ${TARGET} ${CFLAGS}
 
-# Règle par défaut
-all: $(TARGET)
+main.o : ${SRC}/main.c
+	${CC} -c ${SRC}/main.c
 
-# Règle pour construire l'exécutable
-$(TARGET): $(SRC)
-	gcc -Wall -o $@ $< $(CFLAGS) -lSDL3_image
+camera.o : ${SRC}/main.c
+	${CC} -c ${SRC}/camera.c
 
-# Nettoyer les fichiers générés
-clean:
-	rm -f $(TARGET)
+player.o : ${SRC}/main.c
+	${CC} -c ${SRC}/player.c
 
-# Forcer la recompilation
-rebuild: clean all
+enemy.o : ${SRC}/main.c
+	${CC} -c ${SRC}/enemy.c
+
+projectile.o : ${SRC}/main.c
+	${CC} -c ${SRC}/projectile.c
+
+utils.o : ${SRC}/main.c
+	${CC} -c ${SRC}/utils.c
+
+clean :
+	rm -f *~ *.o
