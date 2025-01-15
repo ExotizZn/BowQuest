@@ -3,6 +3,8 @@
 #include <SDL3/SDL_main.h>
 #include <SDL3_image/SDL_image.h>
 
+#include <stdbool.h>
+
 #include "../assets/Sprite-WhiteHand.h"
 
 #include "../include/player.h"
@@ -28,6 +30,7 @@ typedef struct {
 } AppState;
 
 static char debug_string[32];
+static bool debug_mode = false;
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     if (!SDL_SetAppMetadata("Archero Remake", "1.0", "")) {
@@ -44,7 +47,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         return SDL_APP_FAILURE;
     }
-    if (!SDL_CreateWindowAndRenderer("Archero C", 1024, 768, SDL_WINDOW_OPENGL, &as->window, &as->renderer)) {
+    if (!SDL_CreateWindowAndRenderer("Archero C", 1024, 768, 0, &as->window, &as->renderer)) {
         return SDL_APP_FAILURE;
     }
 
@@ -118,6 +121,8 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
             if (sym == SDLK_Q) player->zqsd |= 0x02; // Q : bit 1
             if (sym == SDLK_S) player->zqsd |= 0x04; // S : bit 2
             if (sym == SDLK_D) player->zqsd |= 0x08; // D : bit 3
+
+            if (sym == SDLK_P) debug_mode = !debug_mode;
             break;
         }
         case SDL_EVENT_MOUSE_BUTTON_DOWN: {
@@ -163,7 +168,11 @@ void draw(AppState *as) {
     SDL_RenderClear(renderer);
     SDL_SetRenderClipRect(renderer, 0);
 
-    drawGrid(renderer, camera, w, h);
+    if(debug_mode) {
+        drawGrid(renderer, camera, w, h);
+    } else {
+        drawBackground(renderer, camera, w, h);
+    }
 
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
     SDL_RenderLine(renderer, w/2, h/2, mouse_x, mouse_y);
@@ -189,24 +198,24 @@ void draw(AppState *as) {
 
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
-    static char level_text[32] = "Lvl. 0";
-    SDL_RenderDebugText(renderer, w/2-20, 10, level_text);
-
     SDL_RenderDebugText(renderer, 10, 10, debug_string);
 
     static char player_x[32];
     static char player_y[32];
+    static char level_text[32] = "Lvl. 0";
 
     SDL_snprintf(player_x, sizeof(player_x), "x: %.2f", player->x);
     SDL_snprintf(player_y, sizeof(player_y), "y: %.2f", player->y);
+    SDL_snprintf(level_text, sizeof(level_text), "Lvl. %d", player->level);
 
+    SDL_RenderDebugText(renderer, w/2-20, 10, level_text);
     SDL_RenderDebugText(renderer, 10, 20, player_x);
     SDL_RenderDebugText(renderer, 10, 30, player_y);
 
     SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);
     drawRectangle(renderer, w/2-200, 30, 400, 25);
     SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-    drawRectangle(renderer, w/2-200, 30, 200, 25);
+    drawRectangle(renderer, w/2-200, 30, player->progression_to_next_level/100*400, 25);
 
     SDL_RenderPresent(renderer);
 }

@@ -26,7 +26,7 @@ void drawCircle(SDL_Renderer *renderer, float r, float x, float y) {
     SDL_RenderLines(renderer, (const SDL_FPoint*)&points, CIRCLE_DRAW_SIDES_LEN);
 }
 
-void drawRectangle(SDL_Renderer *renderer, int x, int y, int w, int h) {
+void drawRectangle(SDL_Renderer *renderer, float x, float y, float w, float h) {
     SDL_FRect rect = { x, y, w, h };
     SDL_RenderFillRect(renderer, &rect);
 }
@@ -59,4 +59,32 @@ void drawGrid(SDL_Renderer *renderer, Camera * camera, int w, int h) {
     }
 }
 
+void drawBackground(SDL_Renderer *renderer, Camera *camera, int w, int h) {
+    int startX = ((int)camera->x / 50) * 50;
+    if (camera->x < 0) startX -= 50;
+    int startY = ((int)camera->y / 50) * 50;
+    if (camera->y < 0) startY -= 50;
 
+    int endX = camera->x + w;
+    int endY = camera->y + h;
+
+    // Parcourir la grille et dessiner des rectangles
+    for (int x = startX; x < endX; x += 50) {
+        for (int y = startY; y < endY; y += 50) {
+            // Déterminer la couleur en alternant
+            if (((x / 50) + (y / 50)) % 2 == 0) {
+                SDL_SetRenderDrawColor(renderer, 126, 200, 0, 255);
+            } else {
+                SDL_SetRenderDrawColor(renderer, 132, 205, 0, 255);
+            }
+
+            SDL_FRect rect;
+            rect.x = x - camera->x; // Position relative à l'écran
+            rect.y = y - camera->y;
+            rect.w = 50; // Largeur du rectangle
+            rect.h = 50; // Hauteur du rectangle
+
+            SDL_RenderFillRect(renderer, &rect);
+        }
+    }
+}

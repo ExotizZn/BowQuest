@@ -9,6 +9,8 @@ void initPlayers(Player * player) {
     player->x = 0;
     player->y = 0;
     player->level = 0;
+    player->progression_to_next_level = 0;
+    player->health = 10;
     player->zqsd = 0;
     player->mouse = 0;
     player->keyboard = 0;
@@ -33,6 +35,13 @@ void updatePlayer(Player * player, float dt) {
 
     player->x += dx;
     player->y += dy;
+
+    player->progression_to_next_level += 10 * dt;
+
+    if(player->progression_to_next_level > 100) {
+        player->progression_to_next_level = 0;
+        player->level ++;
+    }
 }
 
 void drawPlayer(SDL_Renderer *renderer, Player * player, Camera * camera, int w, int h) {
@@ -74,4 +83,10 @@ void drawPlayer(SDL_Renderer *renderer, Player * player, Camera * camera, int w,
     dest_rect.h = im_h/4;
 
     SDL_RenderTextureRotated(renderer, image_texture, NULL, &dest_rect, 0, NULL, fliped);
+
+    SDL_SetRenderDrawColor(renderer, 22, 22, 22, 255);
+    drawRectangle(renderer, w/2-35, h/2-10-70, 70, 10);
+
+    SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+    drawRectangle(renderer, w/2-35, h/2-10-70, player->health/100 * 70, 10);
 }

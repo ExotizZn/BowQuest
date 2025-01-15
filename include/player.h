@@ -10,7 +10,9 @@ typedef struct {
     SDL_KeyboardID keyboard;
     float x;
     float y;
-    float level;
+    int level;
+    float progression_to_next_level;
+    int health;
     unsigned char zqsd;
 } Player;
 
