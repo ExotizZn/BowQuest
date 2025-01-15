@@ -3,7 +3,7 @@
 
 #include <SDL3/SDL.h>
 
-#include "../include/camera.h"
+#include "camera.h"
 
 typedef struct {
     SDL_MouseID mouse;

@@ -43,15 +43,19 @@ void drawGrid(SDL_Renderer *renderer, Camera * camera, int w, int h) {
     int endY = camera->y + h;
 
     // Dessiner les lignes verticales
-    for (int x = startX; x <= endX; x += 50) {
-        int screenX = x - camera->x;
-        SDL_RenderLine(renderer, screenX, 0, screenX, h);
+    for (int x = startX; x < endX; x += 50) {
+        if (x >= camera->x && x <= camera->x + w) {
+            int screenX = x - camera->x;
+            SDL_RenderLine(renderer, screenX, 0, screenX, h);
+        }
     }
 
     // Dessiner les lignes horizontales
-    for (int y = startY; y <= endY; y += 50) {
-        int screenY = y - camera->y;
-        SDL_RenderLine(renderer, 0, screenY, w, screenY);
+    for (int y = startY; y < endY; y += 50) {
+        if (y >= camera->y && y <= camera->y + h) {
+            int screenY = y - camera->y;
+            SDL_RenderLine(renderer, 0, screenY, w, screenY);
+        }
     }
 }
 

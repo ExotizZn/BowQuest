@@ -12,5 +12,6 @@ typedef struct {
 } Enemy;
 
 void updateEnemies(Enemy * enemies, Player * player, float dt);
+int enemyUpdateThread(void *data);
 
 #endif
