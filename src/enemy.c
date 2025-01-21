@@ -3,8 +3,8 @@
 
 void updateEnemies(Enemy * enemies, Player * player, float dt) {
     int speed = 100;
-    float dx = 0, dy = 0;
 
+    float dx = 0, dy = 0;
     if(enemies->x < player->x-25) {
         dx += speed * dt;
     } else {
@@ -50,7 +50,7 @@ int enemyUpdateThread(void *data) {
 
         // Mettre à jour les ennemis
         SDL_LockMutex(as->enemyMutex);
-        for (int i = 0; i < 32; i++) {
+        for (int i = 0; i < as->enemy_number; i++) {
             updateEnemies(&as->enemies[i], as->player, dt);
         }
         SDL_UnlockMutex(as->enemyMutex);
@@ -59,4 +59,26 @@ int enemyUpdateThread(void *data) {
     }
 
     return 0;
+}
+
+void drawEnemies(void *data) {
+    AppState * as = (AppState *)data;
+
+    float im_w, im_h;
+
+    SDL_GetTextureSize(as->texture, &im_w, &im_h);
+
+    SDL_LockMutex(as->enemyMutex);
+    for(int i = 0; i < as->enemy_number; i++) {
+        if(as->enemies[i].active) {
+            SDL_FRect dest_rect;
+            dest_rect.x = as->enemies[i].x-im_w/2 - as->camera->x;             
+            dest_rect.y = as->enemies[i].y-im_h/2 - as->camera->y;             
+            dest_rect.w = im_w;         
+            dest_rect.h = im_h;
+
+            SDL_RenderTexture(as->renderer, as->texture, NULL, &dest_rect);
+        }
+    }
+    SDL_UnlockMutex(as->enemyMutex);
 }

@@ -27,6 +27,7 @@ typedef struct {
     int running;
     SDL_Texture * texture;
     int projectile_number;
+    int enemy_number;
 } AppState;
 
 static char debug_string[32];
@@ -62,6 +63,11 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
 
     as->texture = image_texture;
     as->projectile_number = 0;
+    as->enemy_number = 32;
+
+    for(int i = 0; i < as->enemy_number; i++) {
+        as->enemies[i].active = true;
+    }
 
     as->enemyMutex = SDL_CreateMutex();
     if (!as->enemyMutex) {
@@ -143,6 +149,8 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
                 as->projectiles[as->projectile_number].dx = SDL_cos(angle);
                 as->projectiles[as->projectile_number].dy = SDL_sin(angle);
 
+                as->projectiles[as->projectile_number].active = true;
+
                 as->projectile_number++;
             }
             break;
@@ -170,30 +178,15 @@ void draw(AppState *as) {
 
     if(debug_mode) {
         drawGrid(renderer, camera, w, h);
+        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+        SDL_RenderLine(renderer, w/2, h/2, mouse_x, mouse_y);
     } else {
         drawBackground(renderer, camera, w, h);
     }
 
-    SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-    SDL_RenderLine(renderer, w/2, h/2, mouse_x, mouse_y);
+    drawEnemies(as);
 
-    float im_w, im_h;
-
-    SDL_GetTextureSize(as->texture, &im_w, &im_h);
-
-    SDL_LockMutex(as->enemyMutex);
-    for(int i = 0; i < 32; i++) {
-        SDL_FRect dest_rect;
-        dest_rect.x = as->enemies[i].x-im_w/2 - camera->x;             
-        dest_rect.y = as->enemies[i].y-im_h/2 - camera->y;             
-        dest_rect.w = im_w;         
-        dest_rect.h = im_h;
-
-        SDL_RenderTexture(renderer, as->texture, NULL, &dest_rect);
-    }
-    SDL_UnlockMutex(as->enemyMutex);
-
-    drawProjectiles(renderer, camera, as->projectiles, as->projectile_number);
+    drawProjectiles(as);
     drawPlayer(renderer, player, camera, w, h);
 
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
@@ -230,7 +223,7 @@ void update(AppState *as, Uint64 dt_ns) {
     float dt = dt_ns / 1e9f;
 
     updatePlayer(player, dt);
-    updateProjectiles(as->projectiles, as->projectile_number, w, h, dt);
+    updateProjectiles(as, w, h, dt);
 
     as->camera->x = player->x - w/2;
     as->camera->y = player->y - h/2;

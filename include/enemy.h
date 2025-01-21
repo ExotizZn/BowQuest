@@ -9,9 +9,11 @@ typedef struct {
     float x, y;
     int w, h;
     SDL_Texture * image_texture;
+    bool active;
 } Enemy;
 
 void updateEnemies(Enemy * enemies, Player * player, float dt);
 int enemyUpdateThread(void *data);
+void drawEnemies(void *data);
 
 #endif

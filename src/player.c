@@ -10,7 +10,7 @@ void initPlayers(Player * player) {
     player->y = 0;
     player->level = 0;
     player->progression_to_next_level = 0;
-    player->health = 10;
+    player->health = 100;
     player->zqsd = 0;
     player->mouse = 0;
     player->keyboard = 0;
@@ -88,5 +88,5 @@ void drawPlayer(SDL_Renderer *renderer, Player * player, Camera * camera, int w,
     drawRectangle(renderer, w/2-35, h/2-10-70, 70, 10);
 
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-    drawRectangle(renderer, w/2-35, h/2-10-70, player->health/100 * 70, 10);
+    drawRectangle(renderer, w/2-35, h/2-10-70, (float)player->health/100 * 70, 10);
 }

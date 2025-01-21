@@ -22,6 +22,8 @@ typedef struct {
     Uint64 dt_ns;
     int running;
     SDL_Texture * texture;
+    int projectile_number;
+    int enemy_number;
 } AppState;
 
 #endif
