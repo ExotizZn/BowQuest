@@ -2,6 +2,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <SDL3_image/SDL_image.h>
+#include <SDL3_ttf/SDL_ttf.h>
 
 #include <stdbool.h>
 
@@ -11,6 +12,7 @@
 #include "../include/enemy.h"
 #include "../include/projectile.h"
 #include "../include/camera.h"
+#include "../include/menu.h"
 #include "../include/utils.h"
 
 typedef struct {
@@ -28,6 +30,7 @@ typedef struct {
     SDL_Texture * texture;
     int projectile_number;
     int enemy_number;
+    int page;
 } AppState;
 
 static char debug_string[32];
@@ -56,6 +59,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     as->player = SDL_calloc(1, sizeof(Player));
     as->projectiles = SDL_calloc(1000, sizeof(Projectile));
     as->enemies = SDL_calloc(32, sizeof(Enemy));
+    as->page = 0;
 
     SDL_Surface* image_surface = CreateSurfaceFromMemory(Sprite_WhiteHand_png, Sprite_WhiteHand_png_len);
     SDL_Texture *image_texture = SDL_CreateTextureFromSurface(as->renderer, image_surface);
@@ -94,6 +98,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
         as->enemies[i].w = 100;
         as->enemies[i].h = 100;
     }
+
+    TTF_Init();
 
     initPlayers(as->player);
     debug_string[0] = 0;
@@ -176,40 +182,49 @@ void draw(AppState *as) {
     SDL_RenderClear(renderer);
     SDL_SetRenderClipRect(renderer, 0);
 
-    if(debug_mode) {
-        drawGrid(renderer, camera, w, h);
-        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-        SDL_RenderLine(renderer, w/2, h/2, mouse_x, mouse_y);
-    } else {
-        drawBackground(renderer, camera, w, h);
+    switch(as->page) {
+        case 0:
+            drawMenu(as, w, h);
+            break;
+        case 1:
+            if(debug_mode) {
+                drawGrid(renderer, camera, w, h);
+                SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+                SDL_RenderLine(renderer, w/2, h/2, mouse_x, mouse_y);
+            } else {
+                drawBackground(renderer, camera, w, h);
+            }
+
+            drawEnemies(as);
+
+            drawProjectiles(as);
+            drawPlayer(renderer, player, camera, w, h);
+
+            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+
+            SDL_RenderDebugText(renderer, 10, 10, debug_string);
+
+            static char player_x[32];
+            static char player_y[32];
+            static char level_text[32] = "Lvl. 0";
+
+            SDL_snprintf(player_x, sizeof(player_x), "x: %.2f", player->x);
+            SDL_snprintf(player_y, sizeof(player_y), "y: %.2f", player->y);
+            SDL_snprintf(level_text, sizeof(level_text), "Lvl. %d", player->level);
+
+            SDL_RenderDebugText(renderer, w/2-20, 10, level_text);
+            SDL_RenderDebugText(renderer, 10, 20, player_x);
+            SDL_RenderDebugText(renderer, 10, 30, player_y);
+
+            SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);
+            drawRectangle(renderer, w/2-200, 30, 400, 25);
+            SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+            drawRectangle(renderer, w/2-200, 30, player->progression_to_next_level/100*400, 25);
+
+            drawText(as, "AAABBBCCCDDD");
+            break;
     }
-
-    drawEnemies(as);
-
-    drawProjectiles(as);
-    drawPlayer(renderer, player, camera, w, h);
-
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-
-    SDL_RenderDebugText(renderer, 10, 10, debug_string);
-
-    static char player_x[32];
-    static char player_y[32];
-    static char level_text[32] = "Lvl. 0";
-
-    SDL_snprintf(player_x, sizeof(player_x), "x: %.2f", player->x);
-    SDL_snprintf(player_y, sizeof(player_y), "y: %.2f", player->y);
-    SDL_snprintf(level_text, sizeof(level_text), "Lvl. %d", player->level);
-
-    SDL_RenderDebugText(renderer, w/2-20, 10, level_text);
-    SDL_RenderDebugText(renderer, 10, 20, player_x);
-    SDL_RenderDebugText(renderer, 10, 30, player_y);
-
-    SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);
-    drawRectangle(renderer, w/2-200, 30, 400, 25);
-    SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-    drawRectangle(renderer, w/2-200, 30, player->progression_to_next_level/100*400, 25);
-
+        
     SDL_RenderPresent(renderer);
 }
 

@@ -1,6 +1,9 @@
+#include "../include/appstate.h"
 #include "../include/utils.h"
 
 #include <SDL3_image/SDL_image.h>
+#include <SDL3_ttf/SDL_ttf.h>
+#include <string.h>
 
 #define CIRCLE_DRAW_SIDES 32
 #define CIRCLE_DRAW_SIDES_LEN (CIRCLE_DRAW_SIDES + 1)
@@ -87,4 +90,22 @@ void drawBackground(SDL_Renderer *renderer, Camera *camera, int w, int h) {
             SDL_RenderFillRect(renderer, &rect);
         }
     }
+}
+
+void drawText(void * data, const char * text) {
+    AppState *as = (AppState *)data;
+    char * text_clean = NULL;
+    
+    static TTF_Font *font = NULL; 
+    if(!font) {
+        font = TTF_OpenFont("./fonts/Poppins.ttf", 40);
+    } 
+        
+    SDL_SetRenderDrawColor(as->renderer, 0, 0, 0, 255);
+    SDL_Color color = {0, 0, 0, 255};
+    SDL_Surface *textSurface = TTF_RenderText_Solid(font, "AAABBBCCCDDD", sizeof("AAABBBCCCDDD"), color);
+    SDL_Texture *textTexture = SDL_CreateTextureFromSurface(as->renderer, textSurface);
+    SDL_FRect textRect = {50, 50, textTexture->w, textTexture->h};
+    SDL_RenderTexture(as->renderer, textTexture, NULL, &textRect);
+    SDL_DestroyTexture(textTexture);
 }
