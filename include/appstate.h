@@ -8,8 +8,9 @@
 #include "enemy.h"
 #include "projectile.h"
 #include "camera.h"
+#include "fonts.h"
 
-typedef struct {
+typedef struct AppState {
     SDL_Window *window;
     SDL_Renderer *renderer;
     Camera *camera;
@@ -24,6 +25,8 @@ typedef struct {
     SDL_Texture * texture;
     int projectile_number;
     int enemy_number;
+    int page;
+    Fonts * fonts;
 } AppState;
 
 #endif

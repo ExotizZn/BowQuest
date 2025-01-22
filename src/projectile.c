@@ -46,6 +46,16 @@ void updateProjectiles(void *appstate, int screen_w, int screen_h, float dt) {
             as->projectiles[i].x += as->projectiles[i].dx * speed * dt;
             as->projectiles[i].y += as->projectiles[i].dy * speed * dt;
 
+            if(as->projectiles[i].x > screen_w || as->projectiles[i].x < 0) {
+                as->projectiles[i].active = false;
+                continue;
+            }
+
+            if(as->projectiles[i].y > screen_h || as->projectiles[i].y < 0) {
+                as->projectiles[i].active = false;
+                continue;
+            }
+
             SDL_FRect projectile_rect;
             projectile_rect.x = as->projectiles[i].x+10;             
             projectile_rect.y = as->projectiles[i].y+10;             

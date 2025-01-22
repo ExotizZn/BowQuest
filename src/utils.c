@@ -2,8 +2,8 @@
 #include "../include/utils.h"
 
 #include <SDL3_image/SDL_image.h>
-#include <SDL3_ttf/SDL_ttf.h>
 #include <string.h>
+#include <stdbool.h>
 
 #define CIRCLE_DRAW_SIDES 32
 #define CIRCLE_DRAW_SIDES_LEN (CIRCLE_DRAW_SIDES + 1)
@@ -92,20 +92,33 @@ void drawBackground(SDL_Renderer *renderer, Camera *camera, int w, int h) {
     }
 }
 
-void drawText(void * data, const char * text) {
+SDL_Color RGBA(int r, int g, int b, int a) {
+    SDL_Color color = {r, g, b, a};
+    return color;
+}
+
+void drawText(void * data, const char * text, TTF_Font * font, float x, float y, SDL_Color color, bool centered) {
     AppState *as = (AppState *)data;
-    char * text_clean = NULL;
-    
-    static TTF_Font *font = NULL; 
-    if(!font) {
-        font = TTF_OpenFont("./fonts/Poppins.ttf", 40);
-    } 
         
+    if(!text || strcmp(text, "") == 0) return;
+
     SDL_SetRenderDrawColor(as->renderer, 0, 0, 0, 255);
-    SDL_Color color = {0, 0, 0, 255};
-    SDL_Surface *textSurface = TTF_RenderText_Solid(font, "AAABBBCCCDDD", sizeof("AAABBBCCCDDD"), color);
+    SDL_Surface *textSurface = TTF_RenderText_Blended(font, text, 0, color);
     SDL_Texture *textTexture = SDL_CreateTextureFromSurface(as->renderer, textSurface);
-    SDL_FRect textRect = {50, 50, textTexture->w, textTexture->h};
+    SDL_DestroySurface(textSurface);
+
+    if(!textTexture) return;
+
+    SDL_FRect textRect;
+    textRect.w = textTexture->w;
+    textRect.h = textTexture->h;
+    if(centered) {
+        textRect.x = x-textTexture->w/2;
+        textRect.y = y-textTexture->h/2;
+    } else {
+        textRect.x = x;
+        textRect.y = y;
+    }
     SDL_RenderTexture(as->renderer, textTexture, NULL, &textRect);
     SDL_DestroyTexture(textTexture);
 }

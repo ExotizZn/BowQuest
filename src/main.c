@@ -3,37 +3,20 @@
 #include <SDL3/SDL_main.h>
 #include <SDL3_image/SDL_image.h>
 #include <SDL3_ttf/SDL_ttf.h>
-
 #include <stdbool.h>
 
 #include "../assets/Sprite-WhiteHand.h"
 
+#include "../include/appstate.h"
 #include "../include/player.h"
 #include "../include/enemy.h"
 #include "../include/projectile.h"
 #include "../include/camera.h"
 #include "../include/menu.h"
 #include "../include/utils.h"
+#include "../include/fonts.h"
 
-typedef struct {
-    SDL_Window *window;
-    SDL_Renderer *renderer;
-    Camera *camera;
-    Player *player;
-    Projectile * projectiles;
-    Enemy * enemies;
-    SDL_Thread *enemyThread;
-    SDL_Mutex *enemyMutex;
-    SDL_Mutex *dt_Mutex;
-    Uint64 dt_ns;
-    int running;
-    SDL_Texture * texture;
-    int projectile_number;
-    int enemy_number;
-    int page;
-} AppState;
-
-static char debug_string[32];
+static char debug_string[32] = "fps : 0";
 static bool debug_mode = false;
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
@@ -59,7 +42,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     as->player = SDL_calloc(1, sizeof(Player));
     as->projectiles = SDL_calloc(1000, sizeof(Projectile));
     as->enemies = SDL_calloc(32, sizeof(Enemy));
-    as->page = 0;
+    as->page = 1;
 
     SDL_Surface* image_surface = CreateSurfaceFromMemory(Sprite_WhiteHand_png, Sprite_WhiteHand_png_len);
     SDL_Texture *image_texture = SDL_CreateTextureFromSurface(as->renderer, image_surface);
@@ -100,6 +83,9 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     }
 
     TTF_Init();
+
+    as->fonts = SDL_calloc(1, sizeof(Fonts));
+    loadFonts(as->fonts);
 
     initPlayers(as->player);
     debug_string[0] = 0;
@@ -169,6 +155,7 @@ void draw(AppState *as) {
     SDL_Renderer * renderer = as->renderer;
     Player * player = as->player;
     Camera * camera = as->camera;
+    Fonts * fonts = as->fonts;
     Projectile * projectiles = as->projectiles;
     int w, h;
     if (!SDL_GetRenderOutputSize(renderer, &w, &h)) {
@@ -196,13 +183,11 @@ void draw(AppState *as) {
             }
 
             drawEnemies(as);
-
             drawProjectiles(as);
             drawPlayer(renderer, player, camera, w, h);
 
             SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
-            SDL_RenderDebugText(renderer, 10, 10, debug_string);
 
             static char player_x[32];
             static char player_y[32];
@@ -212,16 +197,19 @@ void draw(AppState *as) {
             SDL_snprintf(player_y, sizeof(player_y), "y: %.2f", player->y);
             SDL_snprintf(level_text, sizeof(level_text), "Lvl. %d", player->level);
 
-            SDL_RenderDebugText(renderer, w/2-20, 10, level_text);
-            SDL_RenderDebugText(renderer, 10, 20, player_x);
-            SDL_RenderDebugText(renderer, 10, 30, player_y);
+            SDL_Color white = {255, 255, 255, 255};
+
+            drawText(as, level_text, fonts->poppins_semibold_16, w/2, 15, white, true);
+            drawText(as, debug_string, fonts->poppins_medium_12, 10, 5, white, false);
+            drawText(as, player_x, fonts->poppins_medium_12, 10, 20, white, false);
+            drawText(as, player_y, fonts->poppins_medium_12, 10, 35, white, false);
 
             SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);
             drawRectangle(renderer, w/2-200, 30, 400, 25);
             SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
             drawRectangle(renderer, w/2-200, 30, player->progression_to_next_level/100*400, 25);
 
-            drawText(as, "AAABBBCCCDDD");
+            drawText(as, "Archero-C (build 1.0.0)", fonts->poppins_medium_10, 10, h-20, RGBA(55, 55, 55, 255), false);
             break;
     }
         
