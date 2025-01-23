@@ -13,5 +13,6 @@ void drawMenu(void * data, int w, int h) {
             SDL_SetRenderDrawColor(as->renderer, 0, 0, 255, 255);
         }
         drawRectangle(as->renderer, (w/3)*i, h-100, w/3, 100);
+        drawRectangle(as->renderer, (w/3)*i, 0, w/3, 100);
     }
 }

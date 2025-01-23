@@ -13,7 +13,7 @@ typedef struct {
     bool active;
 } Projectile;
 
-Projectile * initProjectile(float x, float y, float dx, float dy);
+void initProjectile(Projectile * projectile, float x, float y, float dx, float dy, float angle);
 void updateProjectiles(void *appstate, int screen_w, int screen_h, float dt);
 void drawProjectiles(void *appstate);
 

@@ -14,7 +14,7 @@ void loadFonts(Fonts * fonts) {
     fonts->poppins_regular_12 = TTF_OpenFontIO(rw_poppins_regular, 0, 12);
     fonts->poppins_regular_13 = TTF_OpenFontIO(rw_poppins_regular, 0, 13);
     fonts->poppins_regular_14 = TTF_OpenFontIO(rw_poppins_regular, 0, 14);
-    fonts->poppins_regular_15 = TTF_OpenFontIO(rw_poppins_regular, 0,  15);
+    fonts->poppins_regular_15 = TTF_OpenFontIO(rw_poppins_regular, 0, 15);
     fonts->poppins_regular_16 = TTF_OpenFontIO(rw_poppins_regular, 1, 16);
 
     fonts->poppins_medium_10 = TTF_OpenFontIO(rw_poppins_medium, 0, 10);

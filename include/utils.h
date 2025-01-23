@@ -14,4 +14,5 @@ void drawGrid(SDL_Renderer *renderer, Camera * camera, int w, int h);
 void drawBackground(SDL_Renderer *renderer, Camera * camera, int w, int h);
 SDL_Color RGBA(int r, int g, int b, int a);
 void drawText(void * data, const char * text, TTF_Font * font, float x, float y, SDL_Color color, bool centered);
+
 #endif

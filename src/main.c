@@ -16,8 +16,11 @@
 #include "../include/utils.h"
 #include "../include/fonts.h"
 
-static char debug_string[32] = "fps : 0";
+static char debug_string[32];
 static bool debug_mode = false;
+
+#define KEY_PRESS(state, key) ((state) |= (key))
+#define KEY_RELEASE(state, key) ((state) &= ~(key))
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     if (!SDL_SetAppMetadata("Archero Remake", "1.0", "")) {
@@ -34,14 +37,18 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         return SDL_APP_FAILURE;
     }
+    
     if (!SDL_CreateWindowAndRenderer("Archero C", 1024, 768, 0, &as->window, &as->renderer)) {
         return SDL_APP_FAILURE;
     }
 
     as->camera = SDL_calloc(1, sizeof(Camera));
     as->player = SDL_calloc(1, sizeof(Player));
-    as->projectiles = SDL_calloc(1000, sizeof(Projectile));
-    as->enemies = SDL_calloc(32, sizeof(Enemy));
+    as->projectiles = SDL_calloc(100, sizeof(Projectile));
+    as->enemy_number = 32;
+    as->enemies = SDL_calloc(as->enemy_number, sizeof(Enemy));
+    initEnemies(as->enemies, as->enemy_number);
+
     as->page = 1;
 
     SDL_Surface* image_surface = CreateSurfaceFromMemory(Sprite_WhiteHand_png, Sprite_WhiteHand_png_len);
@@ -50,11 +57,6 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
 
     as->texture = image_texture;
     as->projectile_number = 0;
-    as->enemy_number = 32;
-
-    for(int i = 0; i < as->enemy_number; i++) {
-        as->enemies[i].active = true;
-    }
 
     as->enemyMutex = SDL_CreateMutex();
     if (!as->enemyMutex) {
@@ -73,13 +75,6 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     if (!as->dt_Mutex) {
         SDL_DestroyMutex(as->enemyMutex);
         return SDL_APP_FAILURE;
-    }
-
-    for(int i = 0; i < 32; i++) {
-        as->enemies[i].x = SDL_rand(300);
-        as->enemies[i].y = SDL_rand(300);
-        as->enemies[i].w = 100;
-        as->enemies[i].h = 100;
     }
 
     TTF_Init();
@@ -106,19 +101,19 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
             SDL_Keycode sym = event->key.key;
             //SDL_KeyboardID id = event->key.which;
             if (sym == SDLK_ESCAPE) return SDL_APP_SUCCESS;
-            if (sym == SDLK_Z) player->zqsd &= ~0x01; // Z : bit 0
-            if (sym == SDLK_Q) player->zqsd &= ~0x02; // Q : bit 1
-            if (sym == SDLK_S) player->zqsd &= ~0x04; // S : bit 2
-            if (sym == SDLK_D) player->zqsd &= ~0x08; // D : bit 3
+            if (sym == SDLK_Z) KEY_RELEASE(player->zqsd, 0x01); // Z : bit 0
+            if (sym == SDLK_Q) KEY_RELEASE(player->zqsd, 0x02); // Q : bit 1
+            if (sym == SDLK_S) KEY_RELEASE(player->zqsd, 0x04); // S : bit 2
+            if (sym == SDLK_D) KEY_RELEASE(player->zqsd, 0x08); // D : bit 3
             break;
         }
         case SDL_EVENT_KEY_DOWN: {
             SDL_Keycode sym = event->key.key;
             //SDL_KeyboardID id = event->key.which;
-            if (sym == SDLK_Z) player->zqsd |= 0x01; // Z : bit 0
-            if (sym == SDLK_Q) player->zqsd |= 0x02; // Q : bit 1
-            if (sym == SDLK_S) player->zqsd |= 0x04; // S : bit 2
-            if (sym == SDLK_D) player->zqsd |= 0x08; // D : bit 3
+            if (sym == SDLK_Z) KEY_PRESS(player->zqsd, 0x01); // Z : bit 0
+            if (sym == SDLK_Q) KEY_PRESS(player->zqsd, 0x02); // Q : bit 1
+            if (sym == SDLK_S) KEY_PRESS(player->zqsd, 0x04); // S : bit 2
+            if (sym == SDLK_D) KEY_PRESS(player->zqsd, 0x08); // D : bit 3
 
             if (sym == SDLK_P) debug_mode = !debug_mode;
             break;
@@ -132,16 +127,17 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
                 SDL_GetMouseState(&mouse_x, &mouse_y);
 
                 float angle = SDL_atan2(mouse_y - h/2, mouse_x - w/2);
+                float cos_angle = SDL_cos(angle);
+                float sin_angle = SDL_sin(angle);
 
-                as->projectiles[as->projectile_number].angle = angle;
-
-                as->projectiles[as->projectile_number].x = w/2-25;
-                as->projectiles[as->projectile_number].y = h/2-25;
-
-                as->projectiles[as->projectile_number].dx = SDL_cos(angle);
-                as->projectiles[as->projectile_number].dy = SDL_sin(angle);
-
-                as->projectiles[as->projectile_number].active = true;
+                initProjectile(
+                    &as->projectiles[as->projectile_number],
+                    w/2-25,
+                    h/2-25,
+                    cos_angle,
+                    sin_angle,
+                    angle
+                );
 
                 as->projectile_number++;
             }
@@ -188,21 +184,17 @@ void draw(AppState *as) {
 
             SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
+            char level_text[32] = "Lvl. 0";
+            char stats_text[64];
 
-            static char player_x[32];
-            static char player_y[32];
-            static char level_text[32] = "Lvl. 0";
-
-            SDL_snprintf(player_x, sizeof(player_x), "x: %.2f", player->x);
-            SDL_snprintf(player_y, sizeof(player_y), "y: %.2f", player->y);
+            SDL_snprintf(stats_text, sizeof(stats_text), "x: %.2f | y: %.2f", player->x, player->y);
             SDL_snprintf(level_text, sizeof(level_text), "Lvl. %d", player->level);
 
             SDL_Color white = {255, 255, 255, 255};
 
             drawText(as, level_text, fonts->poppins_semibold_16, w/2, 15, white, true);
             drawText(as, debug_string, fonts->poppins_medium_12, 10, 5, white, false);
-            drawText(as, player_x, fonts->poppins_medium_12, 10, 20, white, false);
-            drawText(as, player_y, fonts->poppins_medium_12, 10, 35, white, false);
+            drawText(as, stats_text, fonts->poppins_medium_12, 10, 20, white, false);
 
             SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);
             drawRectangle(renderer, w/2-200, 30, 400, 25);

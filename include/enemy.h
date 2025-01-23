@@ -12,7 +12,7 @@ typedef struct {
     bool active;
 } Enemy;
 
-void updateEnemies(Enemy * enemies, Player * player, float dt);
+void initEnemies(Enemy * enemies, int count);
 int enemyUpdateThread(void *data);
 void drawEnemies(void *data);
 

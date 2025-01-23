@@ -11,20 +11,13 @@
 #include "../assets/archer/projectiles/arrow_fire.h"
 #include "../assets/archer/projectiles/arrow.h"
 
-Projectile * initProjectile(float x, float y, float dx, float dy) {
-    Projectile * new_projectile = SDL_malloc(sizeof(Projectile)) ;
-
-    new_projectile->x = x;
-    new_projectile->y = y;
-    new_projectile->dx = dx;
-    new_projectile->dy = dy;
-
-    return new_projectile;
+void initProjectile(Projectile * projectile, float x, float y, float dx, float dy, float angle) {
+    *projectile = (Projectile){ .x = x, .y = y, .dx = dx, .dy = dy, .angle = angle, .active = true };
 }
 
 void updateProjectiles(void *appstate, int screen_w, int screen_h, float dt) {
     AppState *as = appstate;
-    int speed = 500;
+    const int speed = 500;
 
     float projectile_im_w, projectile_im_h;
     float enemy_im_w, enemy_im_h;
@@ -88,27 +81,27 @@ void drawProjectiles(void *appstate) {
 
     SDL_SetRenderDrawColor(as->renderer, 255, 0, 0, 255);
 
-    float im_w, im_h;
+    static SDL_Texture *projectile_texture = NULL;
+    static float im_w = 0, im_h = 0;
 
-    SDL_Surface* image_surface = CreateSurfaceFromMemory(arrow_png, arrow_png_len);
-    SDL_Texture *image_texture = SDL_CreateTextureFromSurface(as->renderer, image_surface);
-    SDL_DestroySurface(image_surface);
-    SDL_GetTextureSize(image_texture, &im_w, &im_h);
-
-    int w, h;
-    if (!SDL_GetRenderOutputSize(as->renderer, &w, &h)) {
-        return;
+    if (!projectile_texture) {
+        SDL_Surface *image_surface = CreateSurfaceFromMemory(arrow_png, arrow_png_len);
+        projectile_texture = SDL_CreateTextureFromSurface(as->renderer, image_surface);
+        SDL_DestroySurface(image_surface);
+        SDL_GetTextureSize(projectile_texture, &im_w, &im_h);
     }
 
     for(int i = 0; i < as->projectile_number; i++) {
-        if(as->projectiles[i].active) {
-            SDL_FRect dest_rect;
-            dest_rect.x = as->projectiles[i].x+10;             
-            dest_rect.y = as->projectiles[i].y+10;             
-            dest_rect.w = im_w/6;         
-            dest_rect.h = im_h/6;
+        Projectile *proj = &as->projectiles[i];
+        if (!proj->active) continue;
+            
+        SDL_FRect dest_rect = {
+            .x = proj->x + 10,
+            .y = proj->y + 10,
+            .w = im_w / 6,
+            .h = im_h / 6
+        };
 
-            SDL_RenderTextureRotated(as->renderer, image_texture, NULL, &dest_rect, as->projectiles[i].angle * 180/M_PI, NULL, SDL_FLIP_NONE);
-        }
+        SDL_RenderTextureRotated(as->renderer, projectile_texture, NULL, &dest_rect, proj->angle * 180/M_PI, NULL, SDL_FLIP_NONE);
     }
 }
