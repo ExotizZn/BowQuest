@@ -20,9 +20,7 @@ static void updateEnemies(Enemy * enemies, const Player * player, int enemy_coun
     const float player_y_center = player->y - 25.0f;
 
     for(int i = 0; i < enemy_count; i++) {
-        if (!enemies[i].active) {
-            continue; // Passer les ennemis inactifs
-        }
+        if (!enemies[i].active) continue; 
 
         float dx = (enemies[i].x < player_x_center) ? speed * dt : -speed * dt;
         float dy = (enemies[i].y < player_y_center) ? speed * dt : -speed * dt;
@@ -41,10 +39,11 @@ static void updateEnemies(Enemy * enemies, const Player * player, int enemy_coun
 int enemyUpdateThread(void *data) {
     AppState *as = (AppState *)data;
 
-    while (as->running) {
+    while (SDL_GetAtomicInt(&as->running)) {
+        float dt;
         // Lire la valeur de dt_ns
         SDL_LockMutex(as->dt_Mutex);
-        float dt = as->dt_ns / 1e9f;
+        dt = as->dt_ns / 1e9f;
         SDL_UnlockMutex(as->dt_Mutex);
 
         // Mettre à jour les ennemis

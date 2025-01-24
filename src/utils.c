@@ -1,12 +1,32 @@
-#include "../include/appstate.h"
-#include "../include/utils.h"
-
 #include <SDL3_image/SDL_image.h>
 #include <string.h>
 #include <stdbool.h>
 
-#define CIRCLE_DRAW_SIDES 32
-#define CIRCLE_DRAW_SIDES_LEN (CIRCLE_DRAW_SIDES + 1)
+#include "../libs/SDL3_gfx/SDL3_gfxPrimitives.h"
+
+#include "../include/appstate.h"
+#include "../include/utils.h"
+
+void roundRect(SDL_Renderer *renderer, float x, float y, float w, float h, float radius, SDL_Color color) {
+    roundedBoxRGBA(renderer, x, y, x+w, y+h, radius, color.r, color.g, color.b, color.a);
+}
+
+void fillRect(SDL_Renderer *renderer, float x, float y, float w, float h) {
+    SDL_FRect rect = { x, y, w, h };
+    SDL_RenderFillRect(renderer, &rect);
+}
+
+void drawLine(SDL_Renderer *renderer, float x1, float y1, float x2, float y2, SDL_Color color) {
+    aalineRGBA(renderer, x1, y1, x2, y2, color.r, color.g, color.b, color.a);
+}
+
+void circle(SDL_Renderer *renderer, float x, float y, float radius, SDL_Color color) {
+    aacircleRGBA(renderer, x, y, radius, color.r, color.g, color.b, color.a);
+}
+
+void filledCircle(SDL_Renderer *renderer, float x, float y, float radius, SDL_Color color) {
+    filledCircleRGBA(renderer, x, y, radius, color.r, color.g, color.b, color.a);
+}
 
 SDL_Surface* CreateSurfaceFromMemory(const unsigned char* data, size_t size) {
     SDL_IOStream* rw = SDL_IOFromMem((void*)data, size);  // Crée un flux mémoire à partir des données
@@ -14,23 +34,6 @@ SDL_Surface* CreateSurfaceFromMemory(const unsigned char* data, size_t size) {
     
     SDL_Surface* surface = IMG_Load_IO(rw, 1);  // Charge l'image en surface
     return surface;
-}
-
-void drawCircle(SDL_Renderer *renderer, float r, float x, float y) {
-    SDL_FPoint points[CIRCLE_DRAW_SIDES_LEN];
-
-    for (int i = 0; i < CIRCLE_DRAW_SIDES_LEN; i++) {
-        float ang = 2.0f * SDL_PI_F * i / CIRCLE_DRAW_SIDES;
-        points[i].x = x + r * SDL_cosf(ang);
-        points[i].y = y + r * SDL_sinf(ang);
-    }
-
-    SDL_RenderLines(renderer, points, CIRCLE_DRAW_SIDES_LEN);
-}
-
-void drawRectangle(SDL_Renderer *renderer, float x, float y, float w, float h) {
-    SDL_FRect rect = { x, y, w, h };
-    SDL_RenderFillRect(renderer, &rect);
 }
 
 void drawGrid(SDL_Renderer *renderer, Camera * camera, int w, int h) {

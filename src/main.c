@@ -2,6 +2,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <SDL3_image/SDL_image.h>
+#include <SDL3/SDL_opengl.h>
 #include <SDL3_ttf/SDL_ttf.h>
 #include <stdbool.h>
 
@@ -16,11 +17,17 @@
 #include "../include/utils.h"
 #include "../include/fonts.h"
 
-static char debug_string[32];
+static char debug_string[8];
 static bool debug_mode = false;
 
 #define KEY_PRESS(state, key) ((state) |= (key))
 #define KEY_RELEASE(state, key) ((state) &= ~(key))
+
+#define COLOR_WHITE (SDL_Color){255, 255, 255, 255}
+#define COLOR_RED   (SDL_Color){255, 0, 0, 255}
+#define COLOR_GREEN (SDL_Color){0, 255, 0, 255}
+#define COLOR_BLUE  (SDL_Color){0, 0, 255, 255}
+#define COLOR_TRANSPARENT (SDL_Color){0, 0, 0, 0}
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     if (!SDL_SetAppMetadata("Archero Remake", "1.0", "")) {
@@ -37,8 +44,9 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         return SDL_APP_FAILURE;
     }
-    
-    if (!SDL_CreateWindowAndRenderer("Archero C", 1024, 768, 0, &as->window, &as->renderer)) {
+
+
+    if (!SDL_CreateWindowAndRenderer("Archero C", 1024, 768, SDL_WINDOW_RESIZABLE, &as->window, &as->renderer)) {
         return SDL_APP_FAILURE;
     }
 
@@ -63,13 +71,13 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
         return SDL_APP_FAILURE;
     }
 
-    as->running = 1;
-
     as->enemyThread = SDL_CreateThread(enemyUpdateThread, "EnemyUpdateThread", as);
     if (!as->enemyThread) {
         SDL_DestroyMutex(as->enemyMutex);
         return SDL_APP_FAILURE;
     }
+
+    SDL_SetAtomicInt(&as->running, 1);
 
     as->dt_Mutex = SDL_CreateMutex();
     if (!as->dt_Mutex) {
@@ -144,6 +152,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
             break;
         }
     }
+
     return SDL_APP_CONTINUE;
 }
 
@@ -172,8 +181,7 @@ void draw(AppState *as) {
         case 1:
             if(debug_mode) {
                 drawGrid(renderer, camera, w, h);
-                SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-                SDL_RenderLine(renderer, w/2, h/2, mouse_x, mouse_y);
+                drawLine(renderer, w/2, h/2, mouse_x, mouse_y, COLOR_RED);
             } else {
                 drawBackground(renderer, camera, w, h);
             }
@@ -184,27 +192,30 @@ void draw(AppState *as) {
 
             SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
-            char level_text[32] = "Lvl. 0";
-            char stats_text[64];
+            char level_text[10] = "Lvl. 0";
+            char player_x[10];
+            char player_y[10];
 
-            SDL_snprintf(stats_text, sizeof(stats_text), "x: %.2f | y: %.2f", player->x, player->y);
+            SDL_snprintf(player_x, sizeof(player_x), "x: %.2f", player->x);
+            SDL_snprintf(player_y, sizeof(player_y), "y: %.2f", player->y);
             SDL_snprintf(level_text, sizeof(level_text), "Lvl. %d", player->level);
 
-            SDL_Color white = {255, 255, 255, 255};
+            drawText(as, level_text, fonts->poppins_semibold_16, w/2, 15, COLOR_WHITE, true);
+            drawText(as, debug_string, fonts->poppins_medium_12, 10, 5, COLOR_WHITE, false);
+            drawText(as, player_x, fonts->poppins_medium_12, 10, 20, COLOR_WHITE, false);
+            drawText(as, player_y, fonts->poppins_medium_12, 10, 35, COLOR_WHITE, false);
 
-            drawText(as, level_text, fonts->poppins_semibold_16, w/2, 15, white, true);
-            drawText(as, debug_string, fonts->poppins_medium_12, 10, 5, white, false);
-            drawText(as, stats_text, fonts->poppins_medium_12, 10, 20, white, false);
+            roundRect(renderer, w/2-200, 30, 400, 25, 25/2, RGBA(100, 100, 100, 255));
+            roundRect(renderer, w/2-200, 30, player->progression_to_next_level/100*400, 25, 25/2, COLOR_GREEN);
 
-            SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);
-            drawRectangle(renderer, w/2-200, 30, 400, 25);
-            SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-            drawRectangle(renderer, w/2-200, 30, player->progression_to_next_level/100*400, 25);
-
-            drawText(as, "Archero-C (build 1.0.0)", fonts->poppins_medium_10, 10, h-20, RGBA(55, 55, 55, 255), false);
+            if(debug_mode) {
+                drawText(as, "Archero-C (build 1.0.0)", fonts->poppins_medium_10, 10, h-20, RGBA(150, 150, 150, 255), false);
+            } else {
+                drawText(as, "Archero-C (build 1.0.0)", fonts->poppins_medium_10, 10, h-20, RGBA(55, 55, 55, 255), false);
+            }
             break;
     }
-        
+
     SDL_RenderPresent(renderer);
 }
 
@@ -236,30 +247,31 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     as->dt_ns = dt_ns;
     SDL_UnlockMutex(as->dt_Mutex);
 
-    update(as, as->dt_ns);
-
+    update(as, dt_ns);
     draw(as);
+
     if (now - last > 999999999) {
         last = now;
         SDL_snprintf(debug_string, sizeof(debug_string), "%" SDL_PRIu64 " fps", accu);
         accu = 0;
     }
+
     past = now;
-    accu += 1;
+    accu ++;
     Uint64 elapsed = SDL_GetTicksNS() - now;
     if (elapsed < 999999) {
         SDL_DelayNS(999999 - elapsed);
     }
+
     return SDL_APP_CONTINUE;
 }
 
 void SDL_AppQuit(void *appstate, SDL_AppResult result) {
     AppState *as = (AppState *)appstate;
-    as->running = 0;
-    // Attendre que le thread termine
+    SDL_SetAtomicInt(&as->running, 0);
+
     SDL_WaitThread(as->enemyThread, NULL);
 
-    // Détruire les mutex
     SDL_DestroyMutex(as->enemyMutex);
     SDL_DestroyMutex(as->dt_Mutex);
 

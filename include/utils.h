@@ -7,8 +7,11 @@
 
 #include "camera.h"
 
-void drawCircle(SDL_Renderer *renderer, float r, float x, float y);
-void drawRectangle(SDL_Renderer *renderer, float x, float y, float w, float h);
+void roundRect(SDL_Renderer *renderer, float x, float y, float w, float h, float radius, SDL_Color color);
+void fillRect(SDL_Renderer *renderer, float x, float y, float w, float h);
+void drawLine(SDL_Renderer *renderer, float x1, float y1, float x2, float y2, SDL_Color color);
+void circle(SDL_Renderer *renderer, float x, float y, float radius, SDL_Color color);
+void filledCircle(SDL_Renderer *renderer, float x, float y, float radius, SDL_Color color);
 SDL_Surface* CreateSurfaceFromMemory(const unsigned char* data, size_t size);
 void drawGrid(SDL_Renderer *renderer, Camera * camera, int w, int h);
 void drawBackground(SDL_Renderer *renderer, Camera * camera, int w, int h);

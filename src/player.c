@@ -38,12 +38,12 @@ void updatePlayer(Player * player, float dt) {
     player->x += dx;
     player->y += dy;
 
-    player->progression_to_next_level += 10 * dt;
-
+    player->progression_to_next_level = 6.5;
+/* 
     if(player->progression_to_next_level >= 100) {
         player->progression_to_next_level = 0;
         player->level ++;
-    }
+    } */
 }
 
 void drawPlayer(SDL_Renderer *renderer, Player * player, Camera * camera, int w, int h) {
@@ -68,9 +68,7 @@ void drawPlayer(SDL_Renderer *renderer, Player * player, Camera * camera, int w,
 
     if (player->zqsd & 0x02) {
         flip_mode = SDL_FLIP_NONE; // Q (gauche)
-    }
-
-    if (player->zqsd & 0x08) {
+    } else if (player->zqsd & 0x08) {
         flip_mode = SDL_FLIP_HORIZONTAL; // D (droite)
     }
 
@@ -84,8 +82,8 @@ void drawPlayer(SDL_Renderer *renderer, Player * player, Camera * camera, int w,
     SDL_RenderTextureRotated(renderer, current_texture, NULL, &dest_rect, 0, NULL, flip_mode);
 
     SDL_SetRenderDrawColor(renderer, 22, 22, 22, 255); // Couleur du fond de la barre
-    drawRectangle(renderer, w / 2 - 35, h / 2 - 80, 70, 10);
+    fillRect(renderer, w / 2 - 35, h / 2 - 80, 70, 10);
 
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); // Couleur de la vie restante
-    drawRectangle(renderer, w / 2 - 35, h / 2 - 80, (float)player->health / 100 * 70, 10);
+    fillRect(renderer, w / 2 - 35, h / 2 - 80, (float)player->health / 100 * 70, 10);
 }
