@@ -1,6 +1,7 @@
 #ifndef APPSTATE_H
 #define APPSTATE_H
 
+#include <stdbool.h>
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
 
@@ -19,7 +20,6 @@ typedef struct AppState {
     Enemy * enemies;
     SDL_Thread *enemyThread;
     SDL_Mutex *enemyMutex;
-    SDL_Mutex *dt_Mutex;
     Uint64 dt_ns;
     SDL_AtomicInt running;
     SDL_Texture * texture;
@@ -27,6 +27,8 @@ typedef struct AppState {
     int enemy_number;
     int page;
     Fonts * fonts;
+    bool is_paused;
+    bool debug_mode;
 } AppState;
 
 #endif
