@@ -7,6 +7,15 @@
 #include "enemy.h"
 
 typedef struct {
+    float projectile_delay;
+    float projectile_speed;
+    float projectile_damage;
+    float crit_chance;
+    float armor;
+    float regen;
+} Player_Stats;
+
+typedef struct {
     SDL_MouseID mouse;
     SDL_KeyboardID keyboard;
     float x;
@@ -18,6 +27,7 @@ typedef struct {
     float progression_to_next_level;
     int health;
     unsigned char zqsd;
+    Player_Stats * player_stats;
 } Player;
 
 // Fonction pour initialiser le joueur

@@ -44,7 +44,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
         return SDL_APP_FAILURE;
     }
 
-    if (!SDL_CreateWindowAndRenderer("Archero C", 1024, 768, SDL_WINDOW_RESIZABLE, &as->window, &as->renderer)) {
+    if (!SDL_CreateWindowAndRenderer("Archero C", 1024, 720, SDL_WINDOW_RESIZABLE, &as->window, &as->renderer)) {
         return SDL_APP_FAILURE;
     }
 
@@ -79,7 +79,6 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
         as->enemies[i].h = image_texture->h;
     }
 
-
     // Initialisation des polices d'écriture
     as->fonts = SDL_calloc(1, sizeof(Fonts));
     loadFonts(as->fonts);
@@ -109,6 +108,14 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
     AppState *as = appstate;
     Player *player = as->player;
 
+    static bool fullscreen = false;
+
+    int w, h;
+    float mouse_x, mouse_y;
+
+    SDL_GetRenderOutputSize(as->renderer, &w, &h);
+    SDL_GetMouseState(&mouse_x, &mouse_y);
+
     switch (event->type) {
         case SDL_EVENT_QUIT:
             return SDL_APP_SUCCESS;
@@ -126,6 +133,15 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
             if (sym == SDLK_Q) KEY_RELEASE(player->zqsd, 0x02); // Q : bit 1
             if (sym == SDLK_S) KEY_RELEASE(player->zqsd, 0x04); // S : bit 2
             if (sym == SDLK_D) KEY_RELEASE(player->zqsd, 0x08); // D : bit 3
+            if (sym == SDLK_F11) {
+                fullscreen = !fullscreen;
+                if(fullscreen) {
+                    SDL_SetWindowSize(as->window, 1920, 1080);
+                }
+                SDL_SetWindowFullscreen(as->window, fullscreen);
+                SDL_SetWindowSize(as->window, 1024, 720);
+                SDL_SetWindowPosition(as->window, 0, 0);
+            };
             break;
         }
         case SDL_EVENT_KEY_DOWN: {
@@ -135,32 +151,47 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
             if (sym == SDLK_Q) KEY_PRESS(player->zqsd, 0x02); // Q : bit 1
             if (sym == SDLK_S) KEY_PRESS(player->zqsd, 0x04); // S : bit 2
             if (sym == SDLK_D) KEY_PRESS(player->zqsd, 0x08); // D : bit 3
-
             if (sym == SDLK_P) as->debug_mode = !as->debug_mode;
             break;
         }
         case SDL_EVENT_MOUSE_BUTTON_DOWN: {
             if(event->button.button == SDL_BUTTON_LEFT) {
-                int w, h;
-                float mouse_x, mouse_y;
+                if(!as->is_paused) {
+                    float angle = SDL_atan2(mouse_y - h/2, mouse_x - w/2);
+                    float cos_angle = SDL_cos(angle);
+                    float sin_angle = SDL_sin(angle);
 
-                SDL_GetRenderOutputSize(as->renderer, &w, &h);
-                SDL_GetMouseState(&mouse_x, &mouse_y);
+                    initProjectile(
+                        &as->projectiles[as->projectile_number],
+                        player->x,
+                        player->y,
+                        cos_angle,
+                        sin_angle,
+                        angle
+                    );
 
-                float angle = SDL_atan2(mouse_y - h/2, mouse_x - w/2);
-                float cos_angle = SDL_cos(angle);
-                float sin_angle = SDL_sin(angle);
-
-                initProjectile(
-                    &as->projectiles[as->projectile_number],
-                    player->x,
-                    player->y,
-                    cos_angle,
-                    sin_angle,
-                    angle
-                );
-
-                as->projectile_number++;
+                    as->projectile_number++;
+                } else {
+                    for(int i = 0; i < 3; i++) {
+                        if(mouse_x > w/2-100 && mouse_x < w/2+100) {
+                            if(mouse_y > h/2 - (50*5)/2 + (i*100) && mouse_y < h/2 - (50*5)/2 + (i*100) + 50) {
+                                switch(i) {
+                                    case 0:
+                                        as->is_paused = false;
+                                        break;
+                                    case 1:
+                                        SDL_SetWindowSize(as->window, 800, 800);
+                                        break;
+                                    case 2:
+                                        as->page = 0;
+                                        break;
+                                    default:
+                                        break;
+                                }
+                            }
+                        }
+                    }
+                }
             }
             break;
         }
@@ -247,7 +278,6 @@ void draw(AppState *as, Uint64 dt_ns) {
                 }
             }
             break;
-
         default:
             break;
     }

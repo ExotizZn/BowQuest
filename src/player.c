@@ -1,3 +1,5 @@
+#include <SDL3/SDL.h>
+
 #include "../include/appstate.h"
 #include "../include/player.h"
 #include "../include/utils.h"
@@ -7,6 +9,14 @@
 #include "../assets/archer/archer_left_up.h"
 
 void initPlayers(Player * player) {
+    Player_Stats * player_stats = SDL_calloc(1, sizeof(Player_Stats));
+    player_stats->projectile_delay = 100.0f;
+    player_stats->projectile_speed = 100.0f;
+    player_stats->projectile_damage = 10.0f;
+    player_stats->crit_chance = 1.0f;
+    player_stats->armor = 0;
+    player_stats->regen = 0;
+
     *player = (Player){
         .x = 1000,
         .y = 1000,
@@ -18,7 +28,8 @@ void initPlayers(Player * player) {
         .health = 100,
         .zqsd = 0,
         .mouse = 0,
-        .keyboard = 0
+        .keyboard = 0,
+        .player_stats = player_stats
     };
 }
 
