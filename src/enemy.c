@@ -1,14 +1,63 @@
+#include <float.h>
+
 #include "../include/appstate.h"
 #include "../include/enemy.h"
 
 void initEnemies(Enemy * enemies, int count) {
     for (int i = 0; i < count; i++) {
+        enemies[i].type = 0;
         enemies[i].active = true;
         enemies[i].x = SDL_rand(300);
         enemies[i].y = SDL_rand(300);
         enemies[i].w = 0;
         enemies[i].h = 0;
         enemies[i].reward = 20;
+    }
+}
+
+void generateEnemies(void * data, int count) {
+    AppState *as = (AppState *)data;
+    
+    int screen_w, screen_h;
+    SDL_GetRenderOutputSize(as->renderer, &screen_w, &screen_h);
+    
+    for (int i = 0; i < count; i++) {
+        int side = SDL_rand(4); // 0: haut, 1: bas, 2: gauche, 3: droite
+        int x, y;
+        
+        switch (side) {
+            case 0: // Haut
+                x = SDL_rand(screen_w);
+                y = -50;
+                break;
+            case 1: // Bas
+                x = SDL_rand(screen_w);
+                y = screen_h + 50;
+                break;
+            case 2: // Gauche
+                x = -50;
+                y = SDL_rand(screen_h);
+                break;
+            case 3: // Droite
+                x = screen_w + 50;
+                y = SDL_rand(screen_h);
+                break;
+        }
+
+        // Ajouter l'ennemi dans la liste
+        for (int j = 0; j < as->enemy_number; j++) {
+            if (!as->enemies[j].active) {
+                as->enemies[j].active = true;
+                as->enemies[j].x = x + as->camera->x;
+                as->enemies[j].y = y + as->camera->y;
+                /* as->enemies[j].w = 40;
+                as->enemies[j].h = 40; */
+                as->enemies[j].type = SDL_rand(3); // Type aléatoire
+                as->enemies[j].reward = 20;
+                as->current_enemy_number++;
+                break;
+            }
+        }
     }
 }
 
@@ -105,6 +154,7 @@ int enemyUpdateThread(void *data) {
 
     static Uint64 last = 0;
     static Uint64 past = 0;
+    static Uint64 lastSpawnTime = 0;
 
     while (SDL_GetAtomicInt(&as->running)) {
         Uint64 now = SDL_GetTicksNS();
@@ -114,6 +164,11 @@ int enemyUpdateThread(void *data) {
             SDL_LockMutex(as->enemyMutex);
             updateEnemies(as, dt);
             SDL_UnlockMutex(as->enemyMutex);
+        }
+
+        if ((now - lastSpawnTime) / 1e9f >= 1.0f) {
+            generateEnemies(as, 3); // Génère 3 ennemis
+            lastSpawnTime = now;
         }
 
         past = now;
@@ -157,4 +212,29 @@ void drawEnemies(void *data) {
         }
     }
     SDL_UnlockMutex(as->enemyMutex);
+}
+
+Enemy *findClosestEnemy(void * data) {
+    AppState * as = (AppState *)data;
+
+    if (as->current_enemy_number == 0) return NULL;
+
+    Player *player = as->player;
+    Enemy *closest = NULL;
+    float min_distance = FLT_MAX;
+
+    for (int i = 0; i < as->current_enemy_number; i++) {
+        Enemy *enemy = &as->enemies[i];
+        if(!enemy->active) continue;
+        float dx = enemy->x - player->x;
+        float dy = enemy->y - player->y;
+        float distance = dx * dx + dy * dy; // On évite sqrt() pour optimiser
+
+        if (distance < min_distance) {
+            min_distance = distance;
+            closest = enemy;
+        }
+    }
+
+    return closest;
 }

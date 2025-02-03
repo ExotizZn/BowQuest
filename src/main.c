@@ -2,9 +2,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <SDL3_image/SDL_image.h>
-#include <SDL3/SDL_opengl.h>
 #include <SDL3_ttf/SDL_ttf.h>
-#include <stdbool.h>
 
 #include "../assets/Sprite-WhiteHand.h"
 
@@ -64,9 +62,9 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     as->projectile_number = 0;
 
     // Initialisation des ennemies 
+    as->current_enemy_number = 0;
     as->enemy_number = 32;
     as->enemies = SDL_calloc(as->enemy_number, sizeof(Enemy));
-    initEnemies(as->enemies, as->enemy_number);
 
     SDL_Surface* image_surface = CreateSurfaceFromMemory(Sprite_WhiteHand_png, Sprite_WhiteHand_png_len);
     SDL_Texture *image_texture = SDL_CreateTextureFromSurface(as->renderer, image_surface);
@@ -127,7 +125,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
         case SDL_EVENT_KEY_UP: {
             SDL_Keycode sym = event->key.key;
             //SDL_KeyboardID id = event->key.which;
-            if (sym == SDLK_L && as->page == 1) return SDL_APP_SUCCESS;
+            if (sym == SDLK_L) return SDL_APP_SUCCESS;
             if (sym == SDLK_ESCAPE) as->is_paused = !as->is_paused;
             if (sym == SDLK_Z) KEY_RELEASE(player->zqsd, 0x01); // Z : bit 0
             if (sym == SDLK_Q) KEY_RELEASE(player->zqsd, 0x02); // Q : bit 1
@@ -156,7 +154,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
         }
         case SDL_EVENT_MOUSE_BUTTON_DOWN: {
             if(event->button.button == SDL_BUTTON_LEFT) {
-                if(!as->is_paused) {
+                if(!as->is_paused && as->debug_mode) {
                     float angle = SDL_atan2(mouse_y - h/2, mouse_x - w/2);
                     float cos_angle = SDL_cos(angle);
                     float sin_angle = SDL_sin(angle);
@@ -241,16 +239,19 @@ void draw(AppState *as, Uint64 dt_ns) {
             char level_text[10] = "Lvl. 0";
             char player_x[10];
             char player_y[10];
+            char enemy_number_text[32];
 
             SDL_snprintf(level_text, sizeof(level_text), "Lvl. %d", player->level);
             drawText(as, level_text, fonts->poppins_semibold_16, w/2, 15, COLOR_WHITE, true);
 
             SDL_snprintf(player_x, sizeof(player_x), "x: %.2f", player->x);
             SDL_snprintf(player_y, sizeof(player_y), "y: %.2f", player->y);
+            SDL_snprintf(enemy_number_text, sizeof(enemy_number_text), "Ennemis: %d", as->current_enemy_number);
 
             drawText(as, debug_string, fonts->poppins_medium_12, 10, 5, COLOR_WHITE, false);
             drawText(as, player_x, fonts->poppins_medium_12, 10, 20, COLOR_WHITE, false);
             drawText(as, player_y, fonts->poppins_medium_12, 10, 35, COLOR_WHITE, false);
+            drawText(as, enemy_number_text, fonts->poppins_medium_12, 10, 50, COLOR_WHITE, false);
 
             roundRect(renderer, w/2-200, 30, 400, 25, 5, COLOR_GREEN);
             SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);
@@ -299,6 +300,29 @@ void update(AppState *as, Uint64 dt_ns) {
 
     as->camera->x = player->x - w/2;
     as->camera->y = player->y - h/2;
+
+    float now = SDL_GetTicksNS() / 1e9f;
+    static float last_shot_time = 0;
+    if (now - last_shot_time > 1.5f) {
+        Enemy *target = findClosestEnemy(as);
+        if (target) {
+            float angle = SDL_atan2(target->y - player->y, target->x - player->x);
+            float cos_angle = SDL_cos(angle);
+            float sin_angle = SDL_sin(angle);
+
+            initProjectile(
+                &as->projectiles[as->projectile_number],
+                player->x,
+                player->y,
+                cos_angle,
+                sin_angle,
+                angle
+            );
+
+            as->projectile_number++;
+            last_shot_time = now;
+        }
+    }
 }
 
 SDL_AppResult SDL_AppIterate(void *appstate) {

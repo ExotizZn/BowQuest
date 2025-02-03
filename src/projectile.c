@@ -71,6 +71,7 @@ void updateProjectiles(void *appstate, int screen_w, int screen_h, float dt) {
                     if(SDL_HasRectIntersectionFloat(&projectile_rect, &enemy_rect)) {
                         as->projectiles[i].active = false;
                         as->enemies[j].active = false;  
+                        as->current_enemy_number--;
 
                         if(as->player->progression_to_next_level + as->enemies[j].reward  > 100) {
                             as->player->progression_to_next_level = (100 + as->enemies[j].reward) - (as->player->progression_to_next_level + as->enemies[j].reward);

@@ -4,6 +4,7 @@
 #include <SDL3/SDL.h>
 
 typedef struct {
+    int type;
     float x, y;
     int w, h;
     SDL_Texture * image_texture;
@@ -12,7 +13,9 @@ typedef struct {
 } Enemy;
 
 void initEnemies(Enemy * enemies, int count);
+void generateEnemies(void *data, int count);
 int enemyUpdateThread(void *data);
 void drawEnemies(void *data);
+Enemy *findClosestEnemy(void * data);
 
 #endif

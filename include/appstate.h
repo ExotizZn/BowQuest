@@ -24,6 +24,7 @@ typedef struct AppState {
     SDL_AtomicInt running;
     SDL_Texture * texture;
     int projectile_number;
+    int current_enemy_number;
     int enemy_number;
     int page;
     Fonts * fonts;
