@@ -136,6 +136,30 @@ void drawText(void * data, const char * text, TTF_Font * font, float x, float y,
     SDL_DestroyTexture(textTexture);
 }
 
+void drawTextWrapped(void * data, const char * text, TTF_Font * font, float x, float y, SDL_Color color, int wrap_width, bool centered) {
+    if(!text || *text == '\0') return;
+    
+    AppState *as = (AppState *)data;
+
+    SDL_Surface *textSurface = TTF_RenderText_Blended_Wrapped(font, text, 0, color, wrap_width);
+
+    if (!textSurface) return;
+
+    SDL_Texture *textTexture = SDL_CreateTextureFromSurface(as->renderer, textSurface);
+    SDL_DestroySurface(textSurface);
+    if (!textTexture) return;
+
+    SDL_FRect textRect = {
+        .x = centered ? x - textTexture->w / 2.0f : x,
+        .y = centered ? y - textTexture->h / 2.0f : y,
+        .w = textTexture->w,
+        .h = textTexture->h
+    };
+
+    SDL_RenderTexture(as->renderer, textTexture, NULL, &textRect);
+    SDL_DestroyTexture(textTexture);
+}
+
 // Fonction pour calculer un point sur une courbe de Bézier quadratique
 Point bezier_quadratic(Point p0, Point p1, Point p2, float t) {
     Point result;

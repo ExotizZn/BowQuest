@@ -39,4 +39,7 @@ void updatePlayer(void * data, float dt);
 // Fonction pour afficher le joueur
 void drawPlayer(void * data);
 
+// Fonction pour afficher le menu 
+void drawUpgradeMenu(void * data);
+
 #endif

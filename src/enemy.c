@@ -17,6 +17,8 @@ void initEnemies(Enemy * enemies, int count) {
 
 void generateEnemies(void * data, int count) {
     AppState *as = (AppState *)data;
+
+    if(as->is_paused || as->upgrade_menu || count == 0) return;
     
     int screen_w, screen_h;
     SDL_GetRenderOutputSize(as->renderer, &screen_w, &screen_h);
@@ -160,7 +162,7 @@ int enemyUpdateThread(void *data) {
         Uint64 now = SDL_GetTicksNS();
         float dt = (now - past) / 1e9f;
 
-        if(!as->is_paused) {
+        if(!as->is_paused && !as->upgrade_menu) {
             SDL_LockMutex(as->enemyMutex);
             updateEnemies(as, dt);
             SDL_UnlockMutex(as->enemyMutex);

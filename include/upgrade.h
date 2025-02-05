@@ -7,4 +7,7 @@ typedef struct {
     char * description;
 } Upgrade;
 
+void loadItemsAssets(void * data, SDL_Texture ** textures);
+void drawItem(void * data, float x, float y, float w, float h, int item_id);
+
 #endif

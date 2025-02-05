@@ -23,12 +23,14 @@ typedef struct AppState {
     Uint64 dt_ns;
     SDL_AtomicInt running;
     SDL_Texture * texture;
+    SDL_Texture ** skills_assets;
     int projectile_number;
     int current_enemy_number;
     int enemy_number;
     int page;
     Fonts * fonts;
     bool is_paused;
+    bool upgrade_menu;
     bool debug_mode;
 } AppState;
 

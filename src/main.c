@@ -12,6 +12,7 @@
 #include "../include/projectile.h"
 #include "../include/camera.h"
 #include "../include/menu.h"
+#include "../include/upgrade.h"
 #include "../include/utils.h"
 #include "../include/fonts.h"
 
@@ -71,6 +72,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     SDL_DestroySurface(image_surface);
 
     as->texture = image_texture;
+    as->skills_assets = SDL_calloc(23, sizeof(SDL_Texture));
+    loadItemsAssets(as, as->skills_assets);
 
     for(int i = 0; i < as->enemy_number; i++) {
         as->enemies[i].w = image_texture->w;
@@ -83,6 +86,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
 
     as->page = 1;
     as->is_paused = false;
+    as->upgrade_menu = false;
     as->debug_mode = false;
 
     SDL_SetAtomicInt(&as->running, 1);
@@ -145,15 +149,29 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
         case SDL_EVENT_KEY_DOWN: {
             SDL_Keycode sym = event->key.key;
             //SDL_KeyboardID id = event->key.which;
-            if (sym == SDLK_Z) KEY_PRESS(player->zqsd, 0x01); // Z : bit 0
-            if (sym == SDLK_Q) KEY_PRESS(player->zqsd, 0x02); // Q : bit 1
-            if (sym == SDLK_S) KEY_PRESS(player->zqsd, 0x04); // S : bit 2
-            if (sym == SDLK_D) KEY_PRESS(player->zqsd, 0x08); // D : bit 3
+            if(as->is_paused || as->upgrade_menu){
+
+            } else {
+                if (sym == SDLK_Z) KEY_PRESS(player->zqsd, 0x01); // Z : bit 0
+                if (sym == SDLK_Q) KEY_PRESS(player->zqsd, 0x02); // Q : bit 1
+                if (sym == SDLK_S) KEY_PRESS(player->zqsd, 0x04); // S : bit 2
+                if (sym == SDLK_D) KEY_PRESS(player->zqsd, 0x08); // D : bit 3
+            }
             if (sym == SDLK_P) as->debug_mode = !as->debug_mode;
             break;
         }
         case SDL_EVENT_MOUSE_BUTTON_DOWN: {
             if(event->button.button == SDL_BUTTON_LEFT) {
+                if(as->upgrade_menu && !as->is_paused) {
+                    for(int i = 0; i < 3; i++) {
+                        if(mouse_x > w/2-(220*3+20)/2 + (i * 240) - 5 && mouse_x < w/2-(220*3+20)/2 + (i * 240) - 5 + 230) {
+                            if(mouse_y > h/2-150 - 5 && mouse_y < h/2-150 - 5 + 310) {
+                                as->upgrade_menu = false;
+                            }
+                        }
+                    }
+                }
+
                 if(!as->is_paused && as->debug_mode) {
                     float angle = SDL_atan2(mouse_y - h/2, mouse_x - w/2);
                     float cos_angle = SDL_cos(angle);
@@ -170,21 +188,23 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 
                     as->projectile_number++;
                 } else {
-                    for(int i = 0; i < 3; i++) {
-                        if(mouse_x > w/2-100 && mouse_x < w/2+100) {
-                            if(mouse_y > h/2 - (50*5)/2 + (i*100) && mouse_y < h/2 - (50*5)/2 + (i*100) + 50) {
-                                switch(i) {
-                                    case 0:
-                                        as->is_paused = false;
-                                        break;
-                                    case 1:
-                                        SDL_SetWindowSize(as->window, 800, 800);
-                                        break;
-                                    case 2:
-                                        as->page = 0;
-                                        break;
-                                    default:
-                                        break;
+                    if(as->is_paused) {
+                        for(int i = 0; i < 3; i++) {
+                            if(mouse_x > w/2-100 && mouse_x < w/2+100) {
+                                if(mouse_y > h/2 - (50*5)/2 + (i*100) && mouse_y < h/2 - (50*5)/2 + (i*100) + 50) {
+                                    switch(i) {
+                                        case 0:
+                                            as->is_paused = false;
+                                            break;
+                                        case 1:
+                                            SDL_SetWindowSize(as->window, 800, 800);
+                                            break;
+                                        case 2:
+                                            as->page = 0;
+                                            break;
+                                        default:
+                                            break;
+                                    }
                                 }
                             }
                         }
@@ -263,6 +283,10 @@ void draw(AppState *as, Uint64 dt_ns) {
                 drawText(as, "Archero-C (build 1.0.0)", fonts->poppins_medium_10, 10, h-20, RGBA(55, 55, 55, 255), false);
             }
 
+            if(as->upgrade_menu) {
+                drawUpgradeMenu(as);
+            }
+
             if(as->is_paused) {
                 SDL_SetRenderDrawBlendMode(as->renderer, SDL_BLENDMODE_BLEND);
                 SDL_SetRenderDrawColor(renderer, 0, 0, 0, 200);
@@ -334,7 +358,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     Uint64 now = SDL_GetTicksNS();
     Uint64 dt_ns = now - past;
 
-    if(!as->is_paused) {
+    if(!as->is_paused && !as->upgrade_menu) {
         update(as, dt_ns);
     }
 

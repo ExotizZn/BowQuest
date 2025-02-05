@@ -2,6 +2,7 @@
 
 #include "../include/appstate.h"
 #include "../include/player.h"
+#include "../include/upgrade.h"
 #include "../include/utils.h"
 
 #include "../assets/archer/archer_left.h"
@@ -33,11 +34,67 @@ void initPlayers(Player * player) {
     };
 }
 
-static void drawUpgradeMenu(void * data) {
+void drawUpgradeMenu(void * data) {
     AppState * as = (AppState *)data;
+    SDL_Renderer * renderer = as->renderer;
 
-    fillRect(as->renderer, 100, 100, 100, 100);
-    SDL_RenderPresent(as->renderer);
+    int w, h;
+    float mouse_x, mouse_y;
+    
+    if (!SDL_GetRenderOutputSize(renderer, &w, &h)) {
+        return;
+    }
+
+    SDL_GetMouseState(&mouse_x, &mouse_y);
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 200);
+    fillRect(renderer, 0, 0, w, h);
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+
+    drawText(as, "Améliorations", as->fonts->poppins_semibold_16, w/2, h/2-200, RGBA(255, 255, 255, 255), true);
+
+    char *skills_text[] = {"Chances accrues", "Boost attaque", "Flèches critiques"};
+
+    SDL_Cursor* cursor;
+    SDL_Cursor * cursor_default;
+    static bool is_active = false;
+    cursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_POINTER);
+    cursor_default = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_DEFAULT);
+
+    if(is_active) {
+        SDL_SetCursor(cursor);
+    } else {
+        SDL_SetCursor(cursor_default);
+    }
+
+    is_active = false;
+
+    for(int i = 0; i < 3; i++) {
+        roundRect(renderer, w/2-(220*3+20)/2 + (i * 240) - 5, h/2-150 - 5, 230, 310, 10, RGBA(255, 255, 255, 255));
+        roundRect(renderer, w/2-(220*3+20)/2 + (i * 240), h/2-150, 220, 300, 10, RGBA(33, 53, 85, 255));
+
+        if(mouse_x > w/2-(220*3+20)/2 + (i * 240) - 5 && mouse_x < w/2-(220*3+20)/2 + (i * 240) - 5 + 230) {
+            if(mouse_y > h/2-150 - 5 && mouse_y < h/2-150 - 5 + 310) {
+                roundRect(renderer, w/2-(220*3+20)/2 + (i * 240) - 5, h/2-150 - 5, 230, 310, 10, RGBA(0, 255, 0, 255));
+                roundRect(renderer, w/2-(220*3+20)/2 + (i * 240), h/2-150, 220, 300, 10, RGBA(43, 63, 95, 255));
+                is_active = true;
+            }
+        }
+
+        drawItem(as, w/2-(220*3+20)/2 + (i * 240) + 110 - 50, h/2-150 + 20, 100, 100, i);
+        drawText(as, skills_text[i], as->fonts->poppins_medium_14, w/2-(220*3+20)/2 + (i * 240) + 110, h/2-10, RGBA(255, 255, 255, 255), true);
+        drawTextWrapped(
+            as, 
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum tempor nunc erat. Pellentesque ex enim, dictum at metus sed, finibus semper ante. In volutpat luctus commodo.", 
+            as->fonts->poppins_regular_12, 
+            w/2-(220*3+20)/2 + (i * 240) + 10, 
+            h/2-150 + 160, 
+            RGBA(255, 255, 255, 255), 
+            220, 
+            false
+        );
+    }
 }
 
 void updatePlayer(void * data, float dt) {
@@ -100,6 +157,7 @@ void updatePlayer(void * data, float dt) {
     player->y += dy;
 
     if(player->progression_to_next_level >= 100) {
+        as->upgrade_menu = true;
         player->progression_to_next_level = 0;
         player->level ++;
     }

@@ -44,6 +44,9 @@ SDL_Color RGBA(int r, int g, int b, int a);
 // Dessiner un texte
 void drawText(void * data, const char * text, TTF_Font * font, float x, float y, SDL_Color color, bool centered);
 
+// Dessiner un texte avec retour à la ligne
+void drawTextWrapped(void * data, const char * text, TTF_Font * font, float x, float y, SDL_Color color, int wrap_width, bool centered);
+
 // Test : Fonction de Bezier Quadratic
 Point bezier_quadratic(Point p0, Point p1, Point p2, float t);
 
