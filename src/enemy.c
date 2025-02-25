@@ -1,72 +1,97 @@
 #include <float.h>
-
 #include "../include/appstate.h"
 #include "../include/enemy.h"
 
-void initEnemies(Enemy * enemies, int count) {
+#define TIME_SCALE 1.0e-9f
+#define ENEMY_SPEED 100.0f
+#define PUSH_FACTOR 100.0f
+#define MIN_DISTANCE 50.0f
+
+static inline SDL_FRect getEnemyRect(const Enemy *enemy, const Camera *camera) {
+    return (SDL_FRect){
+        .x = enemy->x - enemy->w / 2 - camera->x,
+        .y = enemy->y - enemy->h / 2 - camera->y,
+        .w = enemy->w,
+        .h = enemy->h
+    };
+}
+
+void initEnemies(Enemy *enemies, int count) {
     for (int i = 0; i < count; i++) {
-        enemies[i].type = 0;
-        enemies[i].active = true;
-        enemies[i].x = SDL_rand(300);
-        enemies[i].y = SDL_rand(300);
-        enemies[i].w = 0;
-        enemies[i].h = 0;
-        enemies[i].reward = 20;
+        enemies[i] = (Enemy){
+            .type = 0,
+            .active = true,
+            .x = (float)SDL_rand(300),
+            .y = (float)SDL_rand(300),
+            .w = 40.0f,  // Default size instead of 0
+            .h = 40.0f,
+            .reward = 20
+        };
     }
 }
 
-void generateEnemies(void * data, int count) {
+void generateEnemies(void *data, int count) {
     AppState *as = (AppState *)data;
+
+    float im_w, im_h;
+    SDL_GetTextureSize(as->texture, &im_w, &im_h);
 
     if(as->is_paused || as->upgrade_menu || count == 0) return;
     
+    SDL_LockMutex(as->enemyMutex);
     int screen_w, screen_h;
-    SDL_GetRenderOutputSize(as->renderer, &screen_w, &screen_h);
+    if (!SDL_GetRenderOutputSize(as->renderer, &screen_w, &screen_h)) {
+        SDL_UnlockMutex(as->enemyMutex);
+        return;
+    }
     
     for (int i = 0; i < count; i++) {
         int side = SDL_rand(4); // 0: haut, 1: bas, 2: gauche, 3: droite
         int x, y;
         
         switch (side) {
-            case 0: // Haut
-                x = SDL_rand(screen_w);
-                y = -50;
-                break;
-            case 1: // Bas
-                x = SDL_rand(screen_w);
-                y = screen_h + 50;
-                break;
-            case 2: // Gauche
-                x = -50;
-                y = SDL_rand(screen_h);
-                break;
-            case 3: // Droite
-                x = screen_w + 50;
-                y = SDL_rand(screen_h);
-                break;
+        case 0: // Haut
+            x = SDL_rand(screen_w);
+            y = -50;
+            break;
+        case 1: // Bas
+            x = SDL_rand(screen_w);
+            y = screen_h + 50;
+            break;
+        case 2: // Gauche
+            x = -50;
+            y = SDL_rand(screen_h);
+            break;
+        case 3: // Droite
+            x = screen_w + 50;
+            y = SDL_rand(screen_h);
+            break;
         }
 
         // Ajouter l'ennemi dans la liste
         for (int j = 0; j < as->enemy_number; j++) {
             if (!as->enemies[j].active) {
-                as->enemies[j].active = true;
-                as->enemies[j].x = x + as->camera->x;
-                as->enemies[j].y = y + as->camera->y;
-                /* as->enemies[j].w = 40;
-                as->enemies[j].h = 40; */
-                as->enemies[j].type = SDL_rand(3); // Type aléatoire
-                as->enemies[j].reward = 20;
+                as->enemies[j] = (Enemy){
+                    .active = true,
+                    .x = x + as->camera->x,
+                    .y = y + as->camera->y,
+                    .w = im_w,
+                    .h = im_h,
+                    .type = SDL_rand(3),
+                    .reward = 20
+                };
                 as->current_enemy_number++;
                 break;
             }
         }
     }
+    SDL_UnlockMutex(as->enemyMutex);
 }
 
-static void updateEnemies(AppState * as, float dt) {
-    Player * player = as->player;
-    Enemy * enemies = as->enemies;
-    Camera * camera = as->camera;
+static void updateEnemies(AppState *as, float dt) {
+    Player *player = as->player;
+    Enemy *enemies = as->enemies;
+    Camera *camera = as->camera;
 
     const float speed = 100.0f;
     const float push_factor = 100.0f;
@@ -80,34 +105,29 @@ static void updateEnemies(AppState * as, float dt) {
     }
 
     SDL_FRect player_rect = {
-        .x = w/2 - player->w/8,
-        .y = h/2 - player->h/8,
+        .x = w / 2 - player->w / 8,
+        .y = h / 2 - player->h / 8,
         .w = player->w / 4,
         .h = player->h / 4
     };
 
     for(int i = 0; i < as->enemy_number; i++) {
-        if (!enemies[i].active) continue; 
+        if (!enemies[i].active) continue;
 
         float dx = (enemies[i].x < player->x) ? speed * dt : -speed * dt;
         float dy = (enemies[i].y < player->y) ? speed * dt : -speed * dt;
-
         float magnitude = SDL_sqrtf(dx * dx + dy * dy);
+
         if (magnitude > 0.0f) {
             dx = (dx / magnitude) * speed * dt;
             dy = (dy / magnitude) * speed * dt;
         }
 
-        SDL_FRect enemy_rect = {
-            .x = enemies[i].x - enemies[i].w/2 - camera->x,      
-            .y = enemies[i].y - enemies[i].h/2 - camera->y,
-            .w = enemies[i].w,    
-            .h = enemies[i].h
-        };
-
+        SDL_FRect enemy_rect = getEnemyRect(&enemies[i], camera);
         bool collision_with_player = SDL_HasRectIntersectionFloat(&player_rect, &enemy_rect);
-        bool collision_with_other_enemies = false;
 
+        
+        bool collision_with_other_enemies = false;
         float cumulative_repulsion_dx = 0.0f;
         float cumulative_repulsion_dy = 0.0f;
 
@@ -115,9 +135,9 @@ static void updateEnemies(AppState * as, float dt) {
             if (i == j || !enemies[j].active) continue;
 
             SDL_FRect enemy2_rect = {
-                .x = enemies[j].x - enemies[i].w/2 - camera->x,      
-                .y = enemies[j].y - enemies[i].h/2 - camera->y,
-                .w = enemies[j].w,    
+                .x = enemies[j].x - enemies[i].w / 2 - camera->x,
+                .y = enemies[j].y - enemies[i].h / 2 - camera->y,
+                .w = enemies[j].w,
                 .h = enemies[j].h
             };
 
@@ -154,24 +174,23 @@ static void updateEnemies(AppState * as, float dt) {
 int enemyUpdateThread(void *data) {
     AppState *as = (AppState *)data;
 
-    static Uint64 last = 0;
-    static Uint64 past = 0;
-    static Uint64 lastSpawnTime = 0;
+    Uint64 last_spawn_time = 0, past = 0;
 
     while (SDL_GetAtomicInt(&as->running)) {
         Uint64 now = SDL_GetTicksNS();
         float dt = (now - past) / 1e9f;
 
+        SDL_LockMutex(as->enemyMutex);
+
         if(!as->is_paused && !as->upgrade_menu) {
-            SDL_LockMutex(as->enemyMutex);
             updateEnemies(as, dt);
-            SDL_UnlockMutex(as->enemyMutex);
         }
 
-        if ((now - lastSpawnTime) / 1e9f >= 1.0f) {
+        if ((now - last_spawn_time) * TIME_SCALE >= 1.0f) {
             generateEnemies(as, 3); // Génère 3 ennemis
-            lastSpawnTime = now;
+            last_spawn_time = now;
         }
+        SDL_UnlockMutex(as->enemyMutex);
 
         past = now;
         Uint64 elapsed = SDL_GetTicksNS() - now;
@@ -179,34 +198,29 @@ int enemyUpdateThread(void *data) {
             SDL_DelayNS(999999 - elapsed);
         }
     }
-
     return 0;
 }
 
 void drawEnemies(void *data) {
     float im_w, im_h;
-    AppState * as = (AppState *)data;
+    AppState *as = (AppState *)data;
 
     SDL_GetTextureSize(as->texture, &im_w, &im_h);
     
-    Camera * camera = as->camera;
-    Enemy * enemies = as->enemies;
-    SDL_Renderer * renderer = as->renderer;
+    Camera *camera = as->camera;
+    Enemy *enemies = as->enemies;
+    SDL_Renderer *renderer = as->renderer;
 
     SDL_LockMutex(as->enemyMutex);
     for(int i = 0; i < as->enemy_number; i++) {
         if(enemies[i].active) {
-            SDL_FRect dest_rect = {
-                .x = enemies[i].x-im_w/2 - camera->x,      
-                .y = enemies[i].y-im_h/2 - camera->y,
-                .w = im_w,    
-                .h = im_h
-            };
-
+            SDL_FRect dest_rect = getEnemyRect(&as->enemies[i], as->camera);
+            dest_rect.w = im_w;  // Override with texture size
+            dest_rect.h = im_h;
             SDL_RenderTexture(renderer, as->texture, NULL, &dest_rect);
-            SDL_SetRenderDrawColor(renderer, 255, 0, 0, 100);
-
+            
             if(as->debug_mode) {
+                SDL_SetRenderDrawColor(renderer, 255, 0, 0, 100);
                 SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
                 SDL_RenderFillRect(renderer, &dest_rect);
                 SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
@@ -216,27 +230,25 @@ void drawEnemies(void *data) {
     SDL_UnlockMutex(as->enemyMutex);
 }
 
-Enemy *findClosestEnemy(void * data) {
-    AppState * as = (AppState *)data;
+Enemy *findClosestEnemy(void *data) {
+    AppState *as = (AppState *)data;
 
     if (as->current_enemy_number == 0) return NULL;
 
-    Player *player = as->player;
+    SDL_LockMutex(as->enemyMutex);
     Enemy *closest = NULL;
     float min_distance = FLT_MAX;
 
-    for (int i = 0; i < as->current_enemy_number; i++) {
-        Enemy *enemy = &as->enemies[i];
-        if(!enemy->active) continue;
-        float dx = enemy->x - player->x;
-        float dy = enemy->y - player->y;
-        float distance = dx * dx + dy * dy; // On évite sqrt() pour optimiser
-
+    for (int i = 0; i < as->enemy_number; i++) {
+        if (!as->enemies[i].active) continue;
+        float dx = as->enemies[i].x - as->player->x;
+        float dy = as->enemies[i].y - as->player->y;
+        float distance = dx * dx + dy * dy;
         if (distance < min_distance) {
             min_distance = distance;
-            closest = enemy;
+            closest = &as->enemies[i];
         }
     }
-
+    SDL_UnlockMutex(as->enemyMutex);
     return closest;
 }

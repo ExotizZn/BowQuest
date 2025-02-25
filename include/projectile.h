@@ -13,8 +13,10 @@ typedef struct {
     bool active;
 } Projectile;
 
-void initProjectile(Projectile * projectile, float x, float y, float dx, float dy, float angle);
+void addProjectile(void *appstate, float target_x, float target_y);
+void addProjectileDebugMode(void *appstate, float target_x, float target_y, int w, int h);
 void updateProjectiles(void *appstate, int screen_w, int screen_h, float dt);
 void drawProjectiles(void *appstate);
+void cleanupProjectileTexture(void);
 
 #endif

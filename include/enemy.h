@@ -7,15 +7,15 @@ typedef struct {
     int type;
     float x, y;
     int w, h;
-    SDL_Texture * image_texture;
+    SDL_Texture *image_texture;
     bool active;
     float reward;
 } Enemy;
 
-void initEnemies(Enemy * enemies, int count);
+void initEnemies(Enemy *enemies, int count);
 void generateEnemies(void *data, int count);
 int enemyUpdateThread(void *data);
 void drawEnemies(void *data);
-Enemy *findClosestEnemy(void * data);
+Enemy *findClosestEnemy(void *data);
 
 #endif

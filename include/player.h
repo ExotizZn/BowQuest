@@ -26,20 +26,23 @@ typedef struct {
     float speed;
     float progression_to_next_level;
     int health;
+    bool is_hit;
     unsigned char zqsd;
-    Player_Stats * player_stats;
+    Player_Stats *player_stats;
 } Player;
 
 // Fonction pour initialiser le joueur
-void initPlayers(Player * player);
+void initPlayer(Player **player);
 
 // Fonction pour mettre à jour le joueur
-void updatePlayer(void * data, float dt);
+void updatePlayer(void *data, float dt);
 
 // Fonction pour afficher le joueur
-void drawPlayer(void * data);
+void drawPlayer(void *data);
 
-// Fonction pour afficher le menu 
-void drawUpgradeMenu(void * data);
+void cleanupPlayerTextures(void);
+
+// Fonction pour afficher le menu
+void drawUpgradeMenu(void *data);
 
 #endif

@@ -1,4 +1,4 @@
-/*  
+/*
 
 SDL3_rotozoom.c: rotozoomer, zoomer and shrinker for 32bit or 8bit surfaces
 
@@ -70,7 +70,7 @@ extern "C" {
 #  define SDL3_ROTOZOOM_SCOPE extern
 #endif
 
-	/* 
+	/*
 
 	Rotozoom functions
 
@@ -89,8 +89,7 @@ extern "C" {
 		(int width, int height, double angle, double zoomx, double zoomy, 
 		int *dstwidth, int *dstheight);
 
-	/* 
-
+	/*
 	Zooming functions
 
 	*/
@@ -99,15 +98,15 @@ extern "C" {
 
 	SDL3_ROTOZOOM_SCOPE void zoomSurfaceSize(int width, int height, double zoomx, double zoomy, int *dstwidth, int *dstheight);
 
-	/* 
+	/*
 
 	Shrinking functions
 
-	*/     
+	*/
 
 	SDL3_ROTOZOOM_SCOPE SDL_Surface *shrinkSurface(SDL_Surface * src, int factorx, int factory);
 
-	/* 
+	/*
 
 	Specialized rotation functions
 

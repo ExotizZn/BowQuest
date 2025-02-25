@@ -3,7 +3,9 @@
 
 typedef struct {
     float x;
-    float y; 
+    float y;
 } Camera;
+
+void initCamera(Camera **camera);
 
 #endif

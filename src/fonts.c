@@ -4,7 +4,7 @@
 #include "../fonts/Poppins-Medium.h"
 #include "../fonts/Poppins-SemiBold.h"
 
-void loadFonts(Fonts * fonts) {
+void loadFonts(Fonts *fonts) {
     SDL_IOStream *rw_poppins_regular = SDL_IOFromMem(Poppins_Regular_ttf, Poppins_Regular_ttf_len);
     SDL_IOStream *rw_poppins_medium = SDL_IOFromMem(Poppins_Medium_ttf, Poppins_Medium_ttf_len);
     SDL_IOStream *rw_poppins_semibold = SDL_IOFromMem(Poppins_SemiBold_ttf, Poppins_SemiBold_ttf_len);

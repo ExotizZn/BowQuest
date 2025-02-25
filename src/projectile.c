@@ -11,101 +11,146 @@
 #include "../assets/archer/projectiles/arrow_fire.h"
 #include "../assets/archer/projectiles/arrow.h"
 
-void initProjectile(Projectile * projectile, float x, float y, float dx, float dy, float angle) {
-    *projectile = (Projectile){ .x = x, .y = y, .dx = dx, .dy = dy, .angle = angle, .active = true };
+#define PROJECTILE_SPEED 1000.0f
+#define DEG_PER_RAD (180.0f / M_PI)  // Precomputed for angle conversion
+#define MAX_PROJECTILES 100          // Assuming this from earlier context
+
+static void initProjectile(Projectile *projectile, float x, float y, float dx, float dy, float angle) {
+    if (!projectile) return;
+    *projectile = (Projectile) {
+        .x = x,
+        .y = y,
+        .dx = dx,
+        .dy = dy,
+        .angle = angle,
+        .active = true
+    };
+}
+
+void addProjectile(void *appstate, float target_x, float target_y) {
+    AppState *as = (AppState *)appstate;
+    if (!as || !as->player || as->projectile_number >= MAX_PROJECTILES) return;
+
+    Player *player = as->player;
+    float angle = SDL_atan2f(target_y - player->y, target_x - player->x);
+    float dx = SDL_cosf(angle), dy = SDL_sinf(angle);
+
+    initProjectile(&as->projectiles[as->projectile_number++], player->x, player->y, dx, dy, angle);
+}
+
+void addProjectileDebugMode(void *appstate, float target_x, float target_y, int w, int h) {
+    AppState *as = (AppState *)appstate;
+    if (!as || !as->player || as->projectile_number >= MAX_PROJECTILES) return;
+
+    Player *player = as->player;
+    float angle = SDL_atan2f(target_y - h / 2, target_x - w / 2);
+    float dx = SDL_cosf(angle), dy = SDL_sinf(angle);
+
+    initProjectile(&as->projectiles[as->projectile_number++], player->x, player->y, dx, dy, angle);
 }
 
 void updateProjectiles(void *appstate, int screen_w, int screen_h, float dt) {
-    AppState *as = appstate;
-    const int speed = 1000;
+    AppState *as = (AppState *)appstate;
+    if (!as || !as->renderer || !as->camera || !as->enemies || !as->player) return;
 
-    float projectile_im_w, projectile_im_h;
-    float enemy_im_w, enemy_im_h;
-
-    SDL_Surface* image_surface = CreateSurfaceFromMemory(arrow_png, arrow_png_len);
-    SDL_Texture *image_texture = SDL_CreateTextureFromSurface(as->renderer, image_surface);
-    SDL_DestroySurface(image_surface);
-    SDL_GetTextureSize(image_texture, &projectile_im_w, &projectile_im_h);
-    SDL_GetTextureSize(as->texture, &enemy_im_w, &enemy_im_h);
-
-    for(int i = 0; i < as->projectile_number; i++) {
-        if(as->projectiles[i].active) {
-            float projectile_im_w, projectile_im_h;
-            SDL_Surface* image_surface = CreateSurfaceFromMemory(arrow_png, arrow_png_len);
-            SDL_Texture *image_texture = SDL_CreateTextureFromSurface(as->renderer, image_surface);
-            SDL_DestroySurface(image_surface);
-            SDL_GetTextureSize(image_texture, &projectile_im_w, &projectile_im_h);
-
-            as->projectiles[i].x += as->projectiles[i].dx * speed * dt;
-            as->projectiles[i].y += as->projectiles[i].dy * speed * dt;
-
-            if(as->projectiles[i].x - 20 - as->camera->x > screen_w || as->projectiles[i].x - 20 - as->camera->x < 0) {
-                as->projectiles[i].active = false;
-                continue;
+    static float proj_w = 0, proj_h = 0, enemy_w = 0, enemy_h = 0;
+    static bool sizes_loaded = false;
+    if (!sizes_loaded) {
+        SDL_Surface *surf = CreateSurfaceFromMemory(arrow_png, arrow_png_len);
+        if (surf) {
+            SDL_Texture *tex = SDL_CreateTextureFromSurface(as->renderer, surf);
+            SDL_DestroySurface(surf);
+            if (tex) {
+                SDL_GetTextureSize(tex, &proj_w, &proj_h);
+                SDL_DestroyTexture(tex);  // Temp texture for size
             }
+        }
+        SDL_GetTextureSize(as->texture, &enemy_w, &enemy_h);
+        sizes_loaded = true;
+    }
+    if (!proj_w || !enemy_w) return;  // Failed to load sizes
 
-            if(as->projectiles[i].y - as->camera->y > screen_h || as->projectiles[i].y - as->camera->y < 0) {
-                as->projectiles[i].active = false;
-                continue;
-            }
+    SDL_LockMutex(as->enemyMutex);  // Protect enemy access
+    for (int i = 0; i < as->projectile_number; i++) {
+        Projectile *proj = &as->projectiles[i];
+        if (!proj->active) continue;
 
-            SDL_FRect projectile_rect = {
-                .x = as->projectiles[i].x - 20 - as->camera->x,             
-                .y = as->projectiles[i].y - as->camera->y,             
-                .w = projectile_im_w/6,         
-                .h = projectile_im_h/6
+        proj->x += proj->dx * PROJECTILE_SPEED * dt;
+        proj->y += proj->dy * PROJECTILE_SPEED * dt;
+
+        float proj_x = proj->x - 20 - as->camera->x;
+        float proj_y = proj->y - as->camera->y;
+        if (proj_x > screen_w || proj_x < 0 || proj_y > screen_h || proj_y < 0) {
+            proj->active = false;
+            continue;
+        }
+
+        SDL_FRect proj_rect = {proj_x, proj_y, proj_w / 6, proj_h / 6};
+        for (int j = 0; j < as->enemy_number; j++) {
+            Enemy *enemy = &as->enemies[j];
+            if (!enemy->active) continue;
+
+            SDL_FRect enemy_rect = {
+                .x = enemy->x - enemy_w / 2 - as->camera->x,
+                .y = enemy->y - enemy_h / 2 - as->camera->y,
+                .w = enemy_w,
+                .h = enemy_h
             };
 
-            for(int j = 0; j < as->enemy_number; j++) {
-                if(as->enemies[j].active) {
-                    float enemy_im_w, enemy_im_h;
-                    SDL_GetTextureSize(as->texture, &enemy_im_w, &enemy_im_h);
-
-                    SDL_FRect enemy_rect = {
-                        .x = as->enemies[j].x-enemy_im_w/2 - as->camera->x,             
-                        .y = as->enemies[j].y-enemy_im_h/2 - as->camera->y,             
-                        .w = enemy_im_w,         
-                        .h = enemy_im_h
-                    };
-
-                    if(SDL_HasRectIntersectionFloat(&projectile_rect, &enemy_rect)) {
-                        as->projectiles[i].active = false;
-                        as->enemies[j].active = false;  
-                        as->current_enemy_number--;
-
-                        if(as->player->progression_to_next_level + as->enemies[j].reward  > 100) {
-                            as->player->progression_to_next_level = (100 + as->enemies[j].reward) - (as->player->progression_to_next_level + as->enemies[j].reward);
-                        } else {
-                            as->player->progression_to_next_level += as->enemies[j].reward;
-                        }
-
-                        break;          
-                    }
-                }
+            if (SDL_HasRectIntersectionFloat(&proj_rect, &enemy_rect)) {
+                proj->active = false;
+                enemy->active = false;
+                as->current_enemy_number--;
+                as->player->progression_to_next_level = SDL_min(100.0f, as->player->progression_to_next_level + enemy->reward);
+                break;
             }
         }
     }
+    SDL_UnlockMutex(as->enemyMutex);
+
+    // Compact projectile array (optional, reduces future iterations)
+    int write_idx = 0;
+    for (int i = 0; i < as->projectile_number; i++) {
+        if (as->projectiles[i].active) {
+            if (write_idx != i) as->projectiles[write_idx] = as->projectiles[i];
+            write_idx++;
+        }
+    }
+    as->projectile_number = write_idx;
+}
+
+static SDL_Texture *proj_texture = NULL;
+static float im_w = 0, im_h = 0;
+static bool texture_loaded = false;
+
+void cleanupProjectileTexture(void) {
+    if (proj_texture) {
+        SDL_DestroyTexture(proj_texture);
+        proj_texture = NULL;
+    }
+    texture_loaded = false;
 }
 
 void drawProjectiles(void *appstate) {
-    AppState *as = appstate;
+    AppState *as = (AppState *)appstate;
+    if (!as || !as->renderer || !as->camera) return;
 
-    SDL_SetRenderDrawColor(as->renderer, 255, 0, 0, 255);
-
-    static SDL_Texture *projectile_texture = NULL;
-    static float im_w = 0, im_h = 0;
-
-    if (!projectile_texture) {
-        SDL_Surface *image_surface = CreateSurfaceFromMemory(arrow_png, arrow_png_len);
-        projectile_texture = SDL_CreateTextureFromSurface(as->renderer, image_surface);
-        SDL_DestroySurface(image_surface);
-        SDL_GetTextureSize(projectile_texture, &im_w, &im_h);
+    if (!texture_loaded) {
+        SDL_Surface *surf = CreateSurfaceFromMemory(arrow_png, arrow_png_len);
+        if (surf) {
+            proj_texture = SDL_CreateTextureFromSurface(as->renderer, surf);
+            SDL_DestroySurface(surf);
+            if (proj_texture) SDL_GetTextureSize(proj_texture, &im_w, &im_h);
+            else SDL_Log("Failed to load projectile texture: %s", SDL_GetError());
+        }
+        texture_loaded = true;
     }
+    if (!proj_texture) return;
 
-    for(int i = 0; i < as->projectile_number; i++) {
+    for (int i = 0; i < as->projectile_number; i++) {
         Projectile *proj = &as->projectiles[i];
         if (!proj->active) continue;
-            
+
         SDL_FRect dest_rect = {
             .x = proj->x - 20 - as->camera->x,
             .y = proj->y - as->camera->y,
@@ -113,12 +158,15 @@ void drawProjectiles(void *appstate) {
             .h = im_h / 6
         };
 
-        if(as->debug_mode) {
+        float angle_deg = proj->angle * DEG_PER_RAD;
+        SDL_RenderTextureRotated(as->renderer, proj_texture, NULL, &dest_rect, angle_deg, NULL, SDL_FLIP_NONE);
+
+        if (as->debug_mode) {
+            SDL_SetRenderDrawColor(as->renderer, 255, 0, 255, 100);
             SDL_SetRenderDrawBlendMode(as->renderer, SDL_BLENDMODE_BLEND);
-            drawFilledRotatedRect(as->renderer, proj->x + 6 - as->camera->x, proj->y + 6 - as->camera->y, im_w / 6, im_h / 6, proj->angle * 180/M_PI, RGBA(255, 0, 255, 100));
+            drawFilledRotatedRect(as->renderer, proj->x + 6 - as->camera->x, proj->y + 6 - as->camera->y, 
+                                 im_w / 6, im_h / 6, angle_deg, RGBA(255, 0, 255, 100));
             SDL_SetRenderDrawBlendMode(as->renderer, SDL_BLENDMODE_NONE);
         }
-
-        SDL_RenderTextureRotated(as->renderer, projectile_texture, NULL, &dest_rect, proj->angle * 180/M_PI, NULL, SDL_FLIP_NONE);
     }
 }
