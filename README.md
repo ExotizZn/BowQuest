@@ -31,3 +31,13 @@ cmake -DCMAKE_BUILD_TYPE=Release ..
 cmake --build . --config Release --parallel
 sudo cmake --install . --config Release
 ```
+
+### SDL_mixer
+```
+git clone https://github.com/libsdl-org/SDL_mixer
+cd SDL_mixer
+mkdir build && cd build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+cmake --build . --config Release --parallel
+sudo cmake --install . --config Release
+```
