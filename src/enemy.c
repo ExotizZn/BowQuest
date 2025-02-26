@@ -25,13 +25,16 @@ void initEnemies(Enemy *enemies, int count) {
             .y = (float)SDL_rand(300),
             .w = 40.0f,  // Default size instead of 0
             .h = 40.0f,
+            .speed = 25.0f,
             .reward = 20
         };
     }
 }
 
-void generateEnemies(void *data, int count) {
+void generateEnemies(void *data, int speed, int reward, int count) {
     AppState *as = (AppState *)data;
+
+    if(as->game_over) return;
 
     float im_w, im_h;
     SDL_GetTextureSize(as->texture, &im_w, &im_h);
@@ -75,10 +78,11 @@ void generateEnemies(void *data, int count) {
                     .active = true,
                     .x = x + as->camera->x,
                     .y = y + as->camera->y,
-                    .w = im_w,
-                    .h = im_h,
+                    .w = im_w/2,
+                    .h = im_h/2,
                     .type = SDL_rand(3),
-                    .reward = 20
+                    .speed = speed,
+                    .reward = reward
                 };
                 as->current_enemy_number++;
                 break;
@@ -89,11 +93,12 @@ void generateEnemies(void *data, int count) {
 }
 
 static void updateEnemies(AppState *as, float dt) {
+    if(as->game_over) return;
+
     Player *player = as->player;
     Enemy *enemies = as->enemies;
     Camera *camera = as->camera;
 
-    const float speed = 100.0f;
     const float push_factor = 100.0f;
     const float min_distance = 50.0f;
 
@@ -105,22 +110,22 @@ static void updateEnemies(AppState *as, float dt) {
     }
 
     SDL_FRect player_rect = {
-        .x = w / 2 - player->w / 8,
-        .y = h / 2 - player->h / 8,
-        .w = player->w / 4,
-        .h = player->h / 4
+        .x = w / 2 - player->w / 2,
+        .y = h / 2 - player->h / 2,
+        .w = player->w,
+        .h = player->h
     };
 
     for(int i = 0; i < as->enemy_number; i++) {
         if (!enemies[i].active) continue;
 
-        float dx = (enemies[i].x < player->x) ? speed * dt : -speed * dt;
-        float dy = (enemies[i].y < player->y) ? speed * dt : -speed * dt;
+        float dx = (enemies[i].x < player->x) ? enemies[i].speed * dt : -enemies[i].speed * dt;
+        float dy = (enemies[i].y < player->y) ? enemies[i].speed * dt : -enemies[i].speed * dt;
         float magnitude = SDL_sqrtf(dx * dx + dy * dy);
 
         if (magnitude > 0.0f) {
-            dx = (dx / magnitude) * speed * dt;
-            dy = (dy / magnitude) * speed * dt;
+            dx = (dx / magnitude) * enemies[i].speed * dt;
+            dy = (dy / magnitude) * enemies[i].speed * dt;
         }
 
         SDL_FRect enemy_rect = getEnemyRect(&enemies[i], camera);
@@ -186,8 +191,8 @@ int enemyUpdateThread(void *data) {
             updateEnemies(as, dt);
         }
 
-        if ((now - last_spawn_time) * TIME_SCALE >= 1.0f) {
-            generateEnemies(as, 3); // Génère 3 ennemis
+        if ((now - last_spawn_time) * TIME_SCALE >= 3.0f) {
+            generateEnemies(as, 50, 10, 5);
             last_spawn_time = now;
         }
         SDL_UnlockMutex(as->enemyMutex);
@@ -202,29 +207,33 @@ int enemyUpdateThread(void *data) {
 }
 
 void drawEnemies(void *data) {
-    float im_w, im_h;
     AppState *as = (AppState *)data;
-
-    SDL_GetTextureSize(as->texture, &im_w, &im_h);
     
     Camera *camera = as->camera;
     Enemy *enemies = as->enemies;
     SDL_Renderer *renderer = as->renderer;
 
+    int w, h;
+    if (!SDL_GetRenderOutputSize(renderer, &w, &h)) return;
+
     SDL_LockMutex(as->enemyMutex);
     for(int i = 0; i < as->enemy_number; i++) {
         if(enemies[i].active) {
-            SDL_FRect dest_rect = getEnemyRect(&as->enemies[i], as->camera);
-            dest_rect.w = im_w;  // Override with texture size
-            dest_rect.h = im_h;
-            SDL_RenderTexture(renderer, as->texture, NULL, &dest_rect);
-            
-            if(as->debug_mode) {
-                SDL_SetRenderDrawColor(renderer, 255, 0, 0, 100);
-                SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-                SDL_RenderFillRect(renderer, &dest_rect);
-                SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
-            }
+            if(as->enemies[i].x - as->camera->x < w + 50 && as->enemies[i].x - as->camera->x > -50 ) {
+                if(as->enemies[i].y - as->camera->y < h + 50 && as->enemies[i].y - as->camera->y > -50) {
+                    SDL_FRect dest_rect = getEnemyRect(&as->enemies[i], as->camera);
+                    dest_rect.w = enemies[i].w;
+                    dest_rect.h = enemies[i].h;
+                    SDL_RenderTexture(renderer, as->texture, NULL, &dest_rect);
+                    
+                    if(as->debug_mode) {
+                        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 100);
+                        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+                        SDL_RenderFillRect(renderer, &dest_rect);
+                        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+                    }
+                }
+            } 
         }
     }
     SDL_UnlockMutex(as->enemyMutex);

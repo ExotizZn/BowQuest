@@ -16,6 +16,7 @@
 #include "../include/menu.h"
 #include "../include/upgrade.h"
 #include "../include/utils.h"
+#include "../include/save.h"
 #include "../include/fonts.h"
 
 static char debug_string[8];
@@ -48,19 +49,26 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     CHECK_SDL(SDL_CreateWindowAndRenderer("Bow Quest", 1024, 720, SDL_WINDOW_RESIZABLE, &as->window, &as->renderer), "Failed to create window/renderer");
     CHECK_SDL(TTF_Init(), "Failed to init TTF");
 
-    /* if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
-        return SDL_APP_FAILURE;
-    }
-    SDL_AudioSpec spec = { .freq = 48000, .format = SDL_AUDIO_F32, .channels = 2 };
+    SDL_AudioSpec spec = {0};
+    spec.freq = MIX_DEFAULT_FREQUENCY;
+    spec.format = MIX_DEFAULT_FORMAT;
+    spec.channels = MIX_DEFAULT_CHANNELS;
+
     CHECK_SDL(Mix_OpenAudio(0, &spec), "Failed to open audio");
     Mix_VolumeMusic(50);
-
+    
     music = Mix_LoadMUS("./assets/son.mp3");
-
-    Mix_FadeInMusic(music, 0, 2000); */
+    Mix_PlayMusic(music, -1);
 
     initCamera(&as->camera);
-    initPlayer(&as->player);
+    if(!loadGame(as)) {
+        SDL_Log("New game.");
+        initPlayer(&as->player);
+    } else {
+        SDL_Log("Player loaded from save.");
+    }
+
+
     as->projectiles = SDL_calloc(100, sizeof(Projectile));
     as->enemy_number = 32;
     as->enemies = SDL_calloc(as->enemy_number, sizeof(Enemy));
@@ -73,6 +81,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
 
     as->is_paused = false;
     as->upgrade_menu = false;
+    as->game_over = false;
     as->debug_mode = false;
 
     SDL_Surface *image_surface = CreateSurfaceFromMemory(Sprite_WhiteHand_png, Sprite_WhiteHand_png_len);
@@ -81,7 +90,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     SDL_DestroySurface(image_surface);
     CHECK_SDL(as->texture, "Failed to create texture");
 
-    as->skills_assets = SDL_calloc(23, sizeof(SDL_Texture));
+    as->skills_assets = SDL_calloc(8, sizeof(SDL_Texture));
     CHECK_SDL(as->skills_assets, "Failed to allocate skills_assets");
     loadItemsAssets(as, as->skills_assets);
 
@@ -170,7 +179,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
     case SDL_EVENT_KEY_DOWN: {
         SDL_Keycode sym = event->key.key;
         if (sym == SDLK_P) as->debug_mode = !as->debug_mode;
-        if (as->is_paused || as->upgrade_menu) break;
+        if (as->is_paused || as->upgrade_menu || as->game_over) break;
         if (sym == SDLK_Z) KEY_PRESS(player->zqsd, 0x01); // Z : bit 0
         if (sym == SDLK_Q) KEY_PRESS(player->zqsd, 0x02); // Q : bit 1
         if (sym == SDLK_S) KEY_PRESS(player->zqsd, 0x04); // S : bit 2
@@ -203,6 +212,7 @@ void draw(AppState *as, Uint64 dt_ns) {
     static char level_text[16] = "Lvl. 0";
     static char player_x[16] = "x: 0.00";
     static char player_y[16] = "y: 0.00";
+    static char player_health[32] = "Player health: 100";
     static char enemy_number_text[32] = "Ennemis: 0";
 
     switch(as->page) {
@@ -228,20 +238,37 @@ void draw(AppState *as, Uint64 dt_ns) {
         if (as->debug_mode) {
             SDL_snprintf(player_x, sizeof(player_x), "x: %.2f", as->player->x);
             SDL_snprintf(player_y, sizeof(player_y), "y: %.2f", as->player->y);
+            SDL_snprintf(player_health, sizeof(player_health), "Player health: %.2f", as->player->health);
             SDL_snprintf(enemy_number_text, sizeof(enemy_number_text), "Ennemis: %d", as->current_enemy_number);
             drawText(as, debug_string, as->fonts->poppins_medium_12, 10, 5, COLOR_WHITE, false);
             drawText(as, player_x, as->fonts->poppins_medium_12, 10, 20, COLOR_WHITE, false);
             drawText(as, player_y, as->fonts->poppins_medium_12, 10, 35, COLOR_WHITE, false);
             drawText(as, enemy_number_text, as->fonts->poppins_medium_12, 10, 50, COLOR_WHITE, false);
+            drawText(as, player_health, as->fonts->poppins_medium_12, 10, 65, COLOR_WHITE, false);
         }
 
         roundRect(renderer, w/2-200, 30, 400, 25, 5, COLOR_GREEN);
         SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);
         fillRect(renderer, w/2+200+2, 30, as->player->progression_to_next_level/100*400 - 402, 26);
 
+        static float time = 0.0f;
+        const float blink_frequency = 1.0f * 2.0f * M_PI;
+    
+        if(as->player->is_hit) {
+            time += 0.016f;
+            float blink_factor = (SDL_sinf(blink_frequency * time) + 1.0f) / 2.0f; // Oscillates 0 to 1
+            Uint8 texture_alpha = (Uint8)(255 * blink_factor);
+            SDL_SetTextureAlphaMod(damageTexture, texture_alpha);
+            SDL_RenderTexture(renderer, damageTexture, NULL, NULL);
+        }
+
+        if(as->player->health == 0.0f) {
+            drawGameOver(as, dt);
+        }
+
         drawText(as, "Bow Quest (build 1.0.0)", as->fonts->poppins_medium_10, 10, h-20, as->debug_mode ? RGBA(150, 150, 150, 255) : RGBA(55, 55, 55, 255), false);
 
-        if(as->upgrade_menu) drawUpgradeMenu(as);
+        if(as->upgrade_menu && !as->game_over) drawUpgradeMenu(as);
 
         if(as->is_paused) {
             SDL_SetRenderDrawBlendMode(as->renderer, SDL_BLENDMODE_BLEND);
@@ -268,18 +295,6 @@ void draw(AppState *as, Uint64 dt_ns) {
         }
         break;
     }
-
-    static float time = 0.0f;
-    const float blink_frequency = 1.0f * 2.0f * M_PI;
-
-    if(as->player->is_hit) {
-        time += 0.016f;
-        float blink_factor = (SDL_sinf(blink_frequency * time) + 1.0f) / 2.0f; // Oscillates 0 to 1
-        Uint8 texture_alpha = (Uint8)(255 * blink_factor);
-        SDL_SetTextureAlphaMod(damageTexture, texture_alpha);
-        SDL_RenderTexture(renderer, damageTexture, NULL, NULL);
-    }
-
     SDL_RenderPresent(renderer);
 }
 
@@ -330,8 +345,8 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 
     last = now;
     Uint64 elapsed = SDL_GetTicksNS() - now;
-    if (elapsed < 16666666) {
-        SDL_DelayNS(16666666 - elapsed);
+    if (elapsed < 999999) {
+        SDL_DelayNS(999999 - elapsed);
     }
 
     return SDL_APP_CONTINUE;
@@ -343,6 +358,8 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
         SDL_Log("AppState is null, nothing to clean up");
         return;
     }
+
+    saveGame(as);
 
     if (QUIT_LOG) SDL_Log("Shutting down...");
     SDL_SetAtomicInt(&as->running, 0);
@@ -426,7 +443,7 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
         as->texture = NULL;
     }
     if (as->skills_assets) {
-        for (int i = 0; i < 23; i++) {
+        for (int i = 0; i < 8; i++) {
             if (as->skills_assets[i]) {
                 if (QUIT_LOG) SDL_Log("Destroying skills_assets[%d]...", i);
                 SDL_DestroyTexture(as->skills_assets[i]);
@@ -459,6 +476,7 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
     if (QUIT_LOG) SDL_Log("Shutting down TTF...");
     TTF_Quit();
     if (QUIT_LOG) SDL_Log("Shutting down Mixer...");
+    Mix_FreeMusic(music);
     Mix_CloseAudio();
     if (QUIT_LOG) SDL_Log("Shutting down SDL...");
     SDL_Quit();

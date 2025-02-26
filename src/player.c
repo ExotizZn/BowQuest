@@ -1,4 +1,5 @@
 #include <SDL3/SDL.h>
+#include <math.h>
 
 #include "../include/appstate.h"
 #include "../include/player.h"
@@ -8,6 +9,8 @@
 #include "../assets/archer/archer_left.h"
 #include "../assets/archer/archer_left_down.h"
 #include "../assets/archer/archer_left_up.h"
+#include "../assets/coin.h"
+#include "../assets/game_over.h"
 
 #define DEFAULT_PROJECTILE_DELAY 100.0f
 #define DEFAULT_PROJECTILE_SPEED 100.0f
@@ -30,7 +33,7 @@ void initPlayer(Player **player) {
         .projectile_speed = DEFAULT_PROJECTILE_SPEED,
         .projectile_damage = DEFAULT_PROJECTILE_DAMAGE,
         .crit_chance = DEFAULT_CRIT_CHANCE,
-        .armor = 0,
+        .armor = 10,
         .regen = 0
     };
 
@@ -42,6 +45,7 @@ void initPlayer(Player **player) {
     (*player)->speed = 200;
     (*player)->progression_to_next_level = 0;
     (*player)->health = 100;
+    (*player)->coins = 0;
     (*player)->is_hit = false;
     (*player)->zqsd = 0;
     (*player)->mouse = 0;
@@ -94,7 +98,7 @@ void drawUpgradeMenu(void *data) {
     static int rand[3] = {0};
 
     if(!shuffled) {
-        for(int i = 0; i < 3; i++) rand[i] = SDL_rand(22);
+        for(int i = 0; i < 3; i++) rand[i] = SDL_rand(8);
         shuffled = true;
     }
 
@@ -122,11 +126,74 @@ void drawUpgradeMenu(void *data) {
     }
 }
 
+void drawGameOver(void *data, float dt) {
+    AppState *as = (AppState *)data;
+    SDL_Renderer *renderer = as->renderer;
+
+    if (!as || !renderer || !as->fonts) return;
+
+    int w, h;
+    if (!SDL_GetRenderOutputSize(as->renderer, &w, &h)) return;
+
+    static int alpha = 0;
+    static SDL_Texture *game_over = NULL;
+
+    SDL_SetRenderDrawBlendMode(as->renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(as->renderer, 0, 0, 0, alpha);
+    fillRect(renderer, 0, 0, w, h);
+    SDL_SetRenderDrawBlendMode(as->renderer, SDL_BLENDMODE_NONE);
+
+
+    if(!game_over) {
+        SDL_Surface *game_over_surface = CreateSurfaceFromMemory(game_over_png, game_over_png_len);
+        game_over = SDL_CreateTextureFromSurface(as->renderer, game_over_surface);
+        SDL_DestroySurface(game_over_surface);
+    }
+
+    float game_over_w = 0, game_over_h = 0;
+    SDL_GetTextureSize(game_over, &game_over_w, &game_over_h);
+
+    static int game_over_y = 0;
+
+    SDL_FRect game_over_dest= {
+        .x = w / 2 - game_over_w / 4,
+        .y = h / 2 - game_over_h / 4 - game_over_y,
+        .w = game_over_w / 2,
+        .h = game_over_h / 2
+    };
+
+    SDL_SetTextureAlphaMod(game_over, alpha);
+    SDL_RenderTexture(renderer, game_over, NULL, &game_over_dest);
+
+    if(alpha < 255) {
+        alpha++;
+    } else {
+        if(game_over_y < 150) {
+            game_over_y++;
+        } else {
+            const char *btn_text[2] = {"Rejouer", "Quitter"};
+            for (int i = 0; i < 2; i++) {
+                int y = h / 2 + (i * 100) - 50;
+                bool hovered = as->mouse->x > w / 2 - 100 && as->mouse->x < w / 2 + 100 &&
+                               as->mouse->y > y && as->mouse->y < y + 50;
+                roundRect(renderer, w / 2 - 100, y, 200, 50, 5, hovered ? RGBA(160, 0, 0, 255) : RGBA(255, 0, 0, 255));
+                if (hovered && as->mouse->left_button) {
+                    if (i == 0) as->is_paused = false;
+                    else if (i == 1) as->page = 0;
+                }
+                drawText(as, btn_text[i], as->fonts->poppins_semibold_16, w / 2, y + 25, RGBA(255, 255, 255, 255), true);
+            }
+        }
+    }
+}
+
 void updatePlayer(void *data, float dt) {
     AppState *as = (AppState *)data;
 
     int w, h;
     if (!SDL_GetRenderOutputSize(as->renderer, &w, &h)) return;
+
+    if(as->game_over) return;
 
     Player *player = as->player;
     Enemy *enemies = as->enemies;
@@ -148,17 +215,18 @@ void updatePlayer(void *data, float dt) {
         dy = (dy / magnitude) * player_speed * dt; // Normalise et applique la vitesse
     }
 
-    
     SDL_FRect player_rect = {
-        .x = w / 2 - player->w / 8,
-        .y = h / 2 - player->h / 8,
-        .w = player->w / 4,
-        .h = player->h / 4
+        .x = w / 2 - player->w / 2,
+        .y = h / 2 - player->h / 2,
+        .w = player->w,
+        .h = player->h
     };
-    
+
     SDL_LockMutex(as->enemyMutex);
     for (int i = 0; i < as->enemy_number; i++) {
         Enemy *enemy = &enemies[i];
+
+        if(!enemy->active) continue;
 
         SDL_FRect enemy_rect = {
             .x = enemies[i].x - enemies[i].w / 2 - camera->x,
@@ -168,7 +236,7 @@ void updatePlayer(void *data, float dt) {
         };
 
         if (SDL_HasRectIntersectionFloat(&player_rect, &enemy_rect)) {
-            player->health = SDL_max(0, player->health - 10 * dt);
+            player->health = SDL_max(0, player->health - 50 * dt);
             player->is_hit = true;
             break;
         }
@@ -185,9 +253,14 @@ void updatePlayer(void *data, float dt) {
         player->progression_to_next_level = 0;
         player->level++;
     }
+
+    if(player->health == 0) {
+        as->game_over = true;
+    }
 }
 
 static SDL_Texture *textures[3] = {NULL};
+static SDL_Texture *coin = NULL;
 static float im_w = 0, im_h = 0;
 static bool textures_loaded = false;
 
@@ -203,6 +276,8 @@ void cleanupPlayerTextures(void) {
 
 void drawPlayer(void *data) {
     AppState *as = (AppState *)data;
+    Player *player = as->player;
+
     if (!as || !as->renderer || !as->player || !as->camera) return;
 
     int w, h;
@@ -221,15 +296,12 @@ void drawPlayer(void *data) {
             }
             if (!textures[i]) SDL_Log("Failed to load texture %d: %s", i, SDL_GetError());
         }
-        if (textures[0]) SDL_GetTextureSize(textures[0], &im_w, &im_h);
+
+        SDL_Surface *coin_surface = CreateSurfaceFromMemory(coin_png, coin_png_len);
+        coin = SDL_CreateTextureFromSurface(as->renderer, coin_surface);
+
         textures_loaded = true;
     }
-
-    if (!im_w || !im_h) return; 
-
-    Player *player = as->player;
-    player->w = im_w;
-    player->h = im_h;
 
     SDL_Texture *current_texture = textures[0];
     SDL_FlipMode flip_mode = (player->zqsd & 0x08) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
@@ -237,11 +309,15 @@ void drawPlayer(void *data) {
     if (player->zqsd & 0x01) current_texture = textures[2];      // Up
     else if (player->zqsd & 0x04) current_texture = textures[1]; // Down
 
+    SDL_GetTextureSize(current_texture, &im_w, &im_h);
+    player->w = im_w / 4;
+    player->h = im_h / 4;
+
     SDL_FRect dest_rect = {
-        .x = w / 2 - im_w / 8,
-        .y = h / 2 - im_h / 8,
-        .w = im_w / 4,
-        .h = im_h / 4
+        .x = w / 2 - player->w / 2,
+        .y = h / 2 - player->h / 2,
+        .w = player->w,
+        .h = player->h
     };
 
     if (current_texture) SDL_RenderTextureRotated(as->renderer, current_texture, NULL, &dest_rect, 0, NULL, flip_mode);
@@ -255,6 +331,27 @@ void drawPlayer(void *data) {
 
     SDL_SetRenderDrawColor(as->renderer, 22, 22, 22, 255);
     fillRect(as->renderer, w / 2 - 35, h / 2 - 80, 70, 10);
-    SDL_SetRenderDrawColor(as->renderer, 255, 0, 0, 255);
+    SDL_SetRenderDrawColor(as->renderer, 216, 64, 64, 255);
     fillRect(as->renderer, w / 2 - 35, h / 2 - 80, player->health * 0.7f, 10);
+
+    if(player->player_stats->armor > 0) {
+        SDL_SetRenderDrawColor(as->renderer, 54, 16, 181, 255);
+        fillRect(as->renderer, w / 2 + 35 - player->player_stats->armor * 0.7f, h / 2 - 80, player->player_stats->armor * 0.7f, 10);
+    }
+
+    SDL_FRect coin_dest = {
+        .x = w - 150,
+        .y = 21,
+        .w = 40,
+        .h = 40
+    };
+
+    SDL_SetRenderDrawBlendMode(as->renderer, SDL_BLENDMODE_BLEND);
+    roundRect(as->renderer, w-165, 15, 140, 52, 5, RGBA(0, 0, 0, 100));
+    SDL_SetRenderDrawBlendMode(as->renderer, SDL_BLENDMODE_NONE);
+
+    SDL_RenderTexture(as->renderer, coin, NULL, &coin_dest);
+    static char coins[10] = "0";
+    SDL_snprintf(coins, sizeof(coins), "%d", as->player->coins);
+    drawText(as, coins, as->fonts->poppins_semibold_16, w-100, 30, RGBA(255, 255, 255, 255), false);
 }

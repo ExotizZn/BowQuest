@@ -39,6 +39,7 @@ typedef struct AppState {
     Mouse *mouse;
     bool is_paused;
     bool upgrade_menu;
+    bool game_over;
     bool debug_mode;
 } AppState;
 

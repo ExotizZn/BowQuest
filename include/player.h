@@ -25,7 +25,8 @@ typedef struct {
     int level;
     float speed;
     float progression_to_next_level;
-    int health;
+    float health;
+    int coins;
     bool is_hit;
     unsigned char zqsd;
     Player_Stats *player_stats;
@@ -44,5 +45,7 @@ void cleanupPlayerTextures(void);
 
 // Fonction pour afficher le menu
 void drawUpgradeMenu(void *data);
+
+void drawGameOver(void *data, float dt);
 
 #endif

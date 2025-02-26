@@ -40,6 +40,9 @@ void addProjectile(void *appstate, float target_x, float target_y) {
 
 void addProjectileDebugMode(void *appstate, float target_x, float target_y, int w, int h) {
     AppState *as = (AppState *)appstate;
+
+    if(as->game_over) return;
+
     if (!as || !as->player || as->projectile_number >= MAX_PROJECTILES) return;
 
     Player *player = as->player;
@@ -51,9 +54,12 @@ void addProjectileDebugMode(void *appstate, float target_x, float target_y, int 
 
 void updateProjectiles(void *appstate, int screen_w, int screen_h, float dt) {
     AppState *as = (AppState *)appstate;
+
+    if(as->game_over) return;
+
     if (!as || !as->renderer || !as->camera || !as->enemies || !as->player) return;
 
-    static float proj_w = 0, proj_h = 0, enemy_w = 0, enemy_h = 0;
+    static float proj_w = 0, proj_h = 0;
     static bool sizes_loaded = false;
     if (!sizes_loaded) {
         SDL_Surface *surf = CreateSurfaceFromMemory(arrow_png, arrow_png_len);
@@ -65,10 +71,11 @@ void updateProjectiles(void *appstate, int screen_w, int screen_h, float dt) {
                 SDL_DestroyTexture(tex);  // Temp texture for size
             }
         }
-        SDL_GetTextureSize(as->texture, &enemy_w, &enemy_h);
+
         sizes_loaded = true;
     }
-    if (!proj_w || !enemy_w) return;  // Failed to load sizes
+    
+    if (!proj_w) return;
 
     SDL_LockMutex(as->enemyMutex);  // Protect enemy access
     for (int i = 0; i < as->projectile_number; i++) {
@@ -85,16 +92,16 @@ void updateProjectiles(void *appstate, int screen_w, int screen_h, float dt) {
             continue;
         }
 
-        SDL_FRect proj_rect = {proj_x, proj_y, proj_w / 6, proj_h / 6};
+        SDL_FRect proj_rect = {proj_x, proj_y, proj_w / 7, proj_h / 7};
         for (int j = 0; j < as->enemy_number; j++) {
             Enemy *enemy = &as->enemies[j];
             if (!enemy->active) continue;
 
             SDL_FRect enemy_rect = {
-                .x = enemy->x - enemy_w / 2 - as->camera->x,
-                .y = enemy->y - enemy_h / 2 - as->camera->y,
-                .w = enemy_w,
-                .h = enemy_h
+                .x = enemy->x - enemy->w / 2 - as->camera->x,
+                .y = enemy->y - enemy->h / 2 - as->camera->y,
+                .w = enemy->w,
+                .h = enemy->h
             };
 
             if (SDL_HasRectIntersectionFloat(&proj_rect, &enemy_rect)) {
@@ -133,6 +140,9 @@ void cleanupProjectileTexture(void) {
 
 void drawProjectiles(void *appstate) {
     AppState *as = (AppState *)appstate;
+
+    if(as->game_over) return;
+
     if (!as || !as->renderer || !as->camera) return;
 
     if (!texture_loaded) {
@@ -154,8 +164,8 @@ void drawProjectiles(void *appstate) {
         SDL_FRect dest_rect = {
             .x = proj->x - 20 - as->camera->x,
             .y = proj->y - as->camera->y,
-            .w = im_w / 6,
-            .h = im_h / 6
+            .w = im_w / 7,
+            .h = im_h / 7
         };
 
         float angle_deg = proj->angle * DEG_PER_RAD;

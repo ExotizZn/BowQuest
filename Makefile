@@ -2,7 +2,7 @@ CC       := gcc
 CFLAGS   := -O3 `pkg-config sdl3 --cflags --libs` -lSDL3_mixer -lSDL3_image -lSDL3_ttf -lm
 SRC      := ./src
 INCLUDE  := ./include
-OBJFILES := main.o camera.o player.o enemy.o projectile.o utils.o menu.o fonts.o mouse.o SDL3_gfxPrimitives.o SDL3_rotozoom.o upgrade.o
+OBJFILES := main.o camera.o player.o enemy.o projectile.o utils.o menu.o fonts.o mouse.o save.o SDL3_gfxPrimitives.o SDL3_rotozoom.o upgrade.o
 TARGET   := main
 
 all: $(TARGET) clean
@@ -36,6 +36,9 @@ fonts.o : ${SRC}/main.c
 
 mouse.o : ${SRC}/main.c
 	${CC} -c ${SRC}/mouse.c
+
+save.o : ${SRC}/main.c
+	${CC} -c ${SRC}/save.c
 
 upgrade.o : ${SRC}/main.c
 	${CC} -c ${SRC}/upgrade.c
