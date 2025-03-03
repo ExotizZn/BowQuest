@@ -93,12 +93,26 @@ void drawUpgradeMenu(void *data) {
 
     drawText(as, "Améliorations", as->fonts->poppins_semibold_16, w / 2, h / 2 - 200, RGBA(255, 255, 255, 255), true);
 
-    static char *skills_text[] = {"Chances accrues", "Boost attaque", "Flèches critiques"};
     static bool shuffled = false;
     static int rand[3] = {0};
 
     if(!shuffled) {
-        for(int i = 0; i < 3; i++) rand[i] = SDL_rand(8);
+        int index = 0;
+        while(index != 3) {
+            bool good = true;
+            int random_int = SDL_rand(8);
+            for(int i = 0; i < 3; i++) {
+                if(rand[i] == random_int) {
+                    good = false;
+                    break;
+                }
+            }
+
+            if(good) {
+                rand[index] = random_int;
+                index++;
+            }
+        }
         shuffled = true;
     }
 
@@ -119,9 +133,9 @@ void drawUpgradeMenu(void *data) {
             }
         }
 
-        drawItem(as, x + 65, y_top + 25, 100, 100, rand[i]);
-        drawText(as, skills_text[i], as->fonts->poppins_medium_14, x + 115, y_top + 145, RGBA(255, 255, 255, 255), true);
-        drawTextWrapped(as, "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum tempor nunc erat. Pellentesque ex enim, dictum at metus sed, finibus semper ante. In volutpat luctus commodo.",
+        UpgradeAsset *item = drawItem(as, x + 65, y_top + 25, 100, 100, rand[i]);
+        drawText(as, item->name, as->fonts->poppins_medium_14, x + 115, y_top + 145, RGBA(255, 255, 255, 255), true);
+        drawTextWrapped(as, item->description,
             as->fonts->poppins_regular_12, x + 15, y_top + 165, RGBA(255, 255, 255, 255), 220, false);
     }
 }
@@ -178,8 +192,18 @@ void drawGameOver(void *data, float dt) {
                                as->mouse->y > y && as->mouse->y < y + 50;
                 roundRect(renderer, w / 2 - 100, y, 200, 50, 5, hovered ? RGBA(160, 0, 0, 255) : RGBA(255, 0, 0, 255));
                 if (hovered && as->mouse->left_button) {
-                    if (i == 0) as->is_paused = false;
-                    else if (i == 1) as->page = 0;
+                    if (i == 0) {
+                        as->is_paused = false;
+                        as->game_over = false;
+                        as->player->x = 0;
+                        as->player->y = 0;
+                        as->player->health = 100;
+                        as->player->level = 0;
+                        as->player->is_hit = false;
+                        as->player->progression_to_next_level = 0.0f;
+                    } else if (i == 1) {
+                        as->page = 0;
+                    }
                 }
                 drawText(as, btn_text[i], as->fonts->poppins_semibold_16, w / 2, y + 25, RGBA(255, 255, 255, 255), true);
             }
@@ -256,6 +280,8 @@ void updatePlayer(void *data, float dt) {
 
     if(player->health == 0) {
         as->game_over = true;
+        as->is_paused = false;
+        as->upgrade_menu = false;
     }
 }
 

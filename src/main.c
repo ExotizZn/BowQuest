@@ -6,8 +6,6 @@
 #include <SDL3_ttf/SDL_ttf.h>
 #include <math.h>
 
-#include "../assets/Sprite-WhiteHand.h"
-
 #include "../include/appstate.h"
 #include "../include/player.h"
 #include "../include/enemy.h"
@@ -18,8 +16,9 @@
 #include "../include/utils.h"
 #include "../include/save.h"
 #include "../include/fonts.h"
-#include "../include/shop.h"    // Inclusion pour la page SHOP
-#include "../include/equipment.h"  // Ajoute cette inclusion pour la page EQUIPMENT
+
+#include "../assets/boss/Sprite-WhiteHand.h"
+#include "../assets/boss/el_diablo.h"
 
 static char debug_string[8];
 
@@ -31,7 +30,6 @@ static char debug_string[8];
 #define COLOR_GREEN (SDL_Color){0, 255, 0, 255}
 #define COLOR_BLUE  (SDL_Color){0, 0, 255, 255}
 #define COLOR_TRANSPARENT (SDL_Color){0, 0, 0, 0}
-#define COLOR_YELLOW (SDL_Color){255, 255, 0, 255}  // Couleur pour le fond (optionnel, si tu veux un fallback)
 
 #define CHECK_SDL(x, msg) do { if (!(x)) { SDL_Log(msg ": %s", SDL_GetError()); return SDL_APP_FAILURE; } } while (0)
 
@@ -49,7 +47,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     *appstate = as;
 
     CHECK_SDL(SDL_Init(SDL_INIT_VIDEO), "Failed to init SDL");
-    CHECK_SDL(SDL_CreateWindowAndRenderer("Bow Quest", 1024, 720, SDL_WINDOW_RESIZABLE, &as->window, &as->renderer), "Failed to create window/renderer");
+    CHECK_SDL(SDL_CreateWindowAndRenderer("Bow Quest", 1536, 864, SDL_WINDOW_RESIZABLE, &as->window, &as->renderer), "Failed to create window/renderer");
     CHECK_SDL(TTF_Init(), "Failed to init TTF");
 
     SDL_AudioSpec spec = {0};
@@ -92,14 +90,15 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     SDL_DestroySurface(image_surface);
     CHECK_SDL(as->texture, "Failed to create texture");
 
+    SDL_Surface *image_surface2 = CreateSurfaceFromMemory(el_diablo_png, el_diablo_png_len);
+    CHECK_SDL(image_surface2, "Failed to create surface");
+    as->texture2 = SDL_CreateTextureFromSurface(as->renderer, image_surface2);
+    SDL_DestroySurface(image_surface2);
+    CHECK_SDL(as->texture, "Failed to create texture");
+
     as->skills_assets = SDL_calloc(8, sizeof(SDL_Texture));
     CHECK_SDL(as->skills_assets, "Failed to allocate skills_assets");
     loadItemsAssets(as, as->skills_assets);
-
-    for(int i = 0; i < as->enemy_number; i++) {
-        as->enemies[i].w = as->texture->w;
-        as->enemies[i].h = as->texture->h;
-    }
 
     loadFonts(as->fonts);
     as->page = 0;
@@ -161,12 +160,12 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
     case SDL_EVENT_QUIT:
         return SDL_APP_SUCCESS;
     case SDL_EVENT_WINDOW_FOCUS_LOST:
-        if(as->page == 1) as->is_paused = true;
+        if(as->page == 1 && !as->game_over) as->is_paused = true;
         break;
     case SDL_EVENT_KEY_UP: {
         SDL_Keycode sym = event->key.key;
         if (sym == SDLK_L) return SDL_APP_SUCCESS;
-        if (sym == SDLK_ESCAPE) as->is_paused = !as->is_paused;
+        if (sym == SDLK_ESCAPE && as->page == 1 && !as->game_over) as->is_paused = !as->is_paused;
         if (sym == SDLK_F11) {
             static bool fullscreen = false;
             fullscreen = !fullscreen;
@@ -272,7 +271,7 @@ void draw(AppState *as, Uint64 dt_ns) {
 
         if (as->upgrade_menu && !as->game_over) drawUpgradeMenu(as);
 
-        if (as->is_paused) {
+        if (as->is_paused && !as->game_over) {
             SDL_SetRenderDrawBlendMode(as->renderer, SDL_BLENDMODE_BLEND);
             SDL_SetRenderDrawColor(renderer, 0, 0, 0, 200);
             fillRect(renderer, 0, 0, w, h);
@@ -289,30 +288,12 @@ void draw(AppState *as, Uint64 dt_ns) {
                 roundRect(renderer, w / 2 - 100, y, 200, 50, 5, hovered ? RGBA(160, 0, 0, 255) : RGBA(255, 0, 0, 255));
                 if (hovered && as->mouse->left_button) {
                     if (i == 0) as->is_paused = false;
-                    else if (i == 1) SDL_SetWindowSize(as->window, 800, 800);
                     else if (i == 2) as->page = 0;
                 }
                 drawText(as, btn_text[i], as->fonts->poppins_semibold_16, w / 2, y + 25, COLOR_WHITE, true);
             }
         }
         break;
-    case 2:  // Page SHOP
-        drawShop(as->renderer, as);
-        break;
-    case 3:  // Page EQUIPMENT
-        drawEquipment(as->renderer, as);
-        break;
-    }
-
-    static float time = 0.0f;
-    const float blink_frequency = 1.0f * 2.0f * M_PI;
-
-    if(as->player->is_hit) {
-        time += 0.016f;
-        float blink_factor = (SDL_sinf(blink_frequency * time) + 1.0f) / 2.0f; // Oscillates 0 to 1
-        Uint8 texture_alpha = (Uint8)(255 * blink_factor);
-        SDL_SetTextureAlphaMod(damageTexture, texture_alpha);
-        SDL_RenderTexture(renderer, damageTexture, NULL, NULL);
     }
 
     SDL_RenderPresent(renderer);
@@ -327,19 +308,21 @@ void update(AppState *as, Uint64 dt_ns) {
     Player *player = as->player;
     float dt = dt_ns / 1e9f;
 
-    updatePlayer(as, dt);
-    updateProjectiles(as, w, h, dt);
-
-    as->camera->x = player->x - w / 2;
-    as->camera->y = player->y - h / 2;
-
-    float now = SDL_GetTicksNS() / 1e9f;
-    static float last_shot_time = 0;
-    if (now - last_shot_time > 1.5f) {
-        Enemy *target = findClosestEnemy(as);
-        if (target) {
-            addProjectile(as, target->x, target->y);
-            last_shot_time = now;
+    if(as->page == 1) {
+        updatePlayer(as, dt);
+        updateProjectiles(as, w, h, dt);
+    
+        as->camera->x = player->x - w / 2;
+        as->camera->y = player->y - h / 2;
+    
+        float now = SDL_GetTicksNS() / 1e9f;
+        static float last_shot_time = 0;
+        if (now - last_shot_time > 1.5f) {
+            Enemy *target = findClosestEnemy(as);
+            if (target) {
+                addProjectile(as, target->x, target->y);
+                last_shot_time = now;
+            }
         }
     }
 }
@@ -457,11 +440,6 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
         as->camera = NULL;
     }
 
-    if (as->texture) {
-        if (QUIT_LOG) SDL_Log("Destroying enemy texture...");
-        SDL_DestroyTexture(as->texture);
-        as->texture = NULL;
-    }
     if (as->skills_assets) {
         for (int i = 0; i < 8; i++) {
             if (as->skills_assets[i]) {

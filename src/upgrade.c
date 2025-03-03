@@ -15,13 +15,6 @@
 
 #define NUM_UPGRADE_ITEMS 8
 
-// Define a named struct type
-typedef struct {
-    const unsigned char *data;
-    size_t len;
-    const char *name;
-} UpgradeAsset;
-
 // Define the array with the named type
 static UpgradeAsset upgrade_assets[NUM_UPGRADE_ITEMS];
 
@@ -50,14 +43,14 @@ void loadItemsAssets(void *data, SDL_Texture **textures) {
     // Populate the array at runtime
     static bool initialized = false;
     if (!initialized) {
-        upgrade_assets[0]  = (UpgradeAsset){boost_atk_png, boost_atk_png_len, "boost_atk"};
-        upgrade_assets[1]  = (UpgradeAsset){double_arrows_png, double_arrows_png_len, "double_arrows"};
-        upgrade_assets[2]  = (UpgradeAsset){flaming_arrows_png, flaming_arrows_png_len, "flaming_arrows"};
-        upgrade_assets[3]  = (UpgradeAsset){frozen_arrows_png, frozen_arrows_png_len, "frozen_arrows"};
-        upgrade_assets[4] = (UpgradeAsset){rapid_fire_png, rapid_fire_png_len, "rapid_fire"};
-        upgrade_assets[5] = (UpgradeAsset){self_healing_png, self_healing_png_len, "self_healing"};
-        upgrade_assets[6] = (UpgradeAsset){shield_png, shield_png_len, "shield"};
-        upgrade_assets[7] = (UpgradeAsset){toxic_arrows_png, toxic_arrows_png_len, "toxic_arrows"};
+        upgrade_assets[0]  = (UpgradeAsset){boost_atk_png, boost_atk_png_len, "Attaque boosté", "Ajoute 10%% d'attaque."};
+        upgrade_assets[1]  = (UpgradeAsset){double_arrows_png, double_arrows_png_len, "Flèches doubles", "Double les flèches."};
+        upgrade_assets[2]  = (UpgradeAsset){flaming_arrows_png, flaming_arrows_png_len, "Flèches enflamés", "Enflamme les ennemis pendant une courte période."};
+        upgrade_assets[3]  = (UpgradeAsset){frozen_arrows_png, frozen_arrows_png_len, "Flèches gelés", "Gèle l'ennemi touché pendant une courte période.'"};
+        upgrade_assets[4] = (UpgradeAsset){rapid_fire_png, rapid_fire_png_len, "Tir rapide", "Améliore le delai entre les tirs."};
+        upgrade_assets[5] = (UpgradeAsset){self_healing_png, self_healing_png_len, "Soin passif", "Soigne le joueur passivement."};
+        upgrade_assets[6] = (UpgradeAsset){shield_png, shield_png_len, "Armure", "Ajoute de l'armure au joueur."};
+        upgrade_assets[7] = (UpgradeAsset){toxic_arrows_png, toxic_arrows_png_len, "Flèches toxiques", "Empoisone l'ennemi touché pendant une courte période."};
         initialized = true;
     }
 
@@ -66,10 +59,12 @@ void loadItemsAssets(void *data, SDL_Texture **textures) {
     }
 }
 
-void drawItem(void *data, float x, float y, float w, float h, int item_id) {
+UpgradeAsset *drawItem(void *data, float x, float y, float w, float h, int item_id) {
     AppState *as = (AppState *)data;
-    if (!as || !as->renderer || item_id < 0 || item_id >= NUM_UPGRADE_ITEMS || !as->skills_assets[item_id]) return;
+    if (!as || !as->renderer || item_id < 0 || item_id >= NUM_UPGRADE_ITEMS || !as->skills_assets[item_id]) return NULL;
 
     SDL_FRect dest_rect = {x, y, w, h};
     SDL_RenderTextureRotated(as->renderer, as->skills_assets[item_id], NULL, &dest_rect, 0, NULL, SDL_FLIP_NONE);
+
+    return &upgrade_assets[item_id];
 }

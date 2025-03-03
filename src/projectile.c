@@ -55,7 +55,7 @@ void addProjectileDebugMode(void *appstate, float target_x, float target_y, int 
 void updateProjectiles(void *appstate, int screen_w, int screen_h, float dt) {
     AppState *as = (AppState *)appstate;
 
-    if(as->game_over) return;
+    if(as->game_over || as->page != 1) return;
 
     if (!as || !as->renderer || !as->camera || !as->enemies || !as->player) return;
 

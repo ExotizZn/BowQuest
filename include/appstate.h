@@ -30,6 +30,7 @@ typedef struct AppState {
     Uint64 dt_ns;
     SDL_AtomicInt running;
     SDL_Texture *texture;
+    SDL_Texture *texture2;
     SDL_Texture **skills_assets;
     int projectile_number;
     int current_enemy_number;
