@@ -18,6 +18,8 @@
 #include "../include/utils.h"
 #include "../include/save.h"
 #include "../include/fonts.h"
+#include "../include/shop.h"    // Inclusion pour la page SHOP
+#include "../include/equipment.h"  // Ajoute cette inclusion pour la page EQUIPMENT
 
 static char debug_string[8];
 
@@ -29,6 +31,7 @@ static char debug_string[8];
 #define COLOR_GREEN (SDL_Color){0, 255, 0, 255}
 #define COLOR_BLUE  (SDL_Color){0, 0, 255, 255}
 #define COLOR_TRANSPARENT (SDL_Color){0, 0, 0, 0}
+#define COLOR_YELLOW (SDL_Color){255, 255, 0, 255}  // Couleur pour le fond (optionnel, si tu veux un fallback)
 
 #define CHECK_SDL(x, msg) do { if (!(x)) { SDL_Log(msg ": %s", SDL_GetError()); return SDL_APP_FAILURE; } } while (0)
 
@@ -68,7 +71,6 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
         SDL_Log("Player loaded from save.");
     }
 
-
     as->projectiles = SDL_calloc(100, sizeof(Projectile));
     as->enemy_number = 32;
     as->enemies = SDL_calloc(as->enemy_number, sizeof(Enemy));
@@ -100,7 +102,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     }
 
     loadFonts(as->fonts);
-    as->page = 1;
+    as->page = 0;
     SDL_SetAtomicInt(&as->running, 1);
 
     as->enemyMutex = SDL_CreateMutex();
@@ -200,7 +202,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 }
 
 void draw(AppState *as, Uint64 dt_ns) {
-    SDL_Renderer * renderer = as->renderer;
+    SDL_Renderer *renderer = as->renderer;
 
     int w, h;
     if (!SDL_GetRenderOutputSize(renderer, &w, &h)) return;
@@ -215,12 +217,12 @@ void draw(AppState *as, Uint64 dt_ns) {
     static char player_health[32] = "Player health: 100";
     static char enemy_number_text[32] = "Ennemis: 0";
 
-    switch(as->page) {
+    switch (as->page) {
     case 0:
-        drawMenu(as, w, h);
+        drawMenu(as->renderer, as);
         break;
     case 1:
-        if(as->debug_mode) {
+        if (as->debug_mode) {
             drawGrid(renderer, as->camera, w, h);
             drawLine(renderer, w / 2, h / 2, as->mouse->x, as->mouse->y, COLOR_RED);
         } else {
@@ -233,7 +235,7 @@ void draw(AppState *as, Uint64 dt_ns) {
 
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         SDL_snprintf(level_text, sizeof(level_text), "Lvl. %d", as->player->level);
-        drawText(as, level_text, as->fonts->poppins_semibold_16, w/2, 15, COLOR_WHITE, true);
+        drawText(as, level_text, as->fonts->poppins_semibold_16, w / 2, 15, COLOR_WHITE, true);
 
         if (as->debug_mode) {
             SDL_snprintf(player_x, sizeof(player_x), "x: %.2f", as->player->x);
@@ -247,14 +249,14 @@ void draw(AppState *as, Uint64 dt_ns) {
             drawText(as, player_health, as->fonts->poppins_medium_12, 10, 65, COLOR_WHITE, false);
         }
 
-        roundRect(renderer, w/2-200, 30, 400, 25, 5, COLOR_GREEN);
+        roundRect(renderer, w / 2 - 200, 30, 400, 25, 5, COLOR_GREEN);
         SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);
-        fillRect(renderer, w/2+200+2, 30, as->player->progression_to_next_level/100*400 - 402, 26);
+        fillRect(renderer, w / 2 + 200 + 2, 30, as->player->progression_to_next_level / 100 * 400 - 402, 26);
 
         static float time = 0.0f;
         const float blink_frequency = 1.0f * 2.0f * M_PI;
-    
-        if(as->player->is_hit) {
+
+        if (as->player->is_hit) {
             time += 0.016f;
             float blink_factor = (SDL_sinf(blink_frequency * time) + 1.0f) / 2.0f; // Oscillates 0 to 1
             Uint8 texture_alpha = (Uint8)(255 * blink_factor);
@@ -262,21 +264,21 @@ void draw(AppState *as, Uint64 dt_ns) {
             SDL_RenderTexture(renderer, damageTexture, NULL, NULL);
         }
 
-        if(as->player->health == 0.0f) {
+        if (as->player->health == 0.0f) {
             drawGameOver(as, dt);
         }
 
-        drawText(as, "Bow Quest (build 1.0.0)", as->fonts->poppins_medium_10, 10, h-20, as->debug_mode ? RGBA(150, 150, 150, 255) : RGBA(55, 55, 55, 255), false);
+        drawText(as, "Bow Quest (build 1.0.0)", as->fonts->poppins_medium_10, 10, h - 20, as->debug_mode ? RGBA(150, 150, 150, 255) : RGBA(55, 55, 55, 255), false);
 
-        if(as->upgrade_menu && !as->game_over) drawUpgradeMenu(as);
+        if (as->upgrade_menu && !as->game_over) drawUpgradeMenu(as);
 
-        if(as->is_paused) {
+        if (as->is_paused) {
             SDL_SetRenderDrawBlendMode(as->renderer, SDL_BLENDMODE_BLEND);
             SDL_SetRenderDrawColor(renderer, 0, 0, 0, 200);
             fillRect(renderer, 0, 0, w, h);
             SDL_SetRenderDrawBlendMode(as->renderer, SDL_BLENDMODE_NONE);
 
-            drawText(as, "Pause", as->fonts->poppins_semibold_16, w/2, 50, RGBA(255, 255, 255, 255), true);
+            drawText(as, "Pause", as->fonts->poppins_semibold_16, w / 2, 50, RGBA(255, 255, 255, 255), true);
 
             const char *btn_text[3] = {"Reprendre", "Options", "Quitter"};
 
@@ -294,7 +296,25 @@ void draw(AppState *as, Uint64 dt_ns) {
             }
         }
         break;
+    case 2:  // Page SHOP
+        drawShop(as->renderer, as);
+        break;
+    case 3:  // Page EQUIPMENT
+        drawEquipment(as->renderer, as);
+        break;
     }
+
+    static float time = 0.0f;
+    const float blink_frequency = 1.0f * 2.0f * M_PI;
+
+    if(as->player->is_hit) {
+        time += 0.016f;
+        float blink_factor = (SDL_sinf(blink_frequency * time) + 1.0f) / 2.0f; // Oscillates 0 to 1
+        Uint8 texture_alpha = (Uint8)(255 * blink_factor);
+        SDL_SetTextureAlphaMod(damageTexture, texture_alpha);
+        SDL_RenderTexture(renderer, damageTexture, NULL, NULL);
+    }
+
     SDL_RenderPresent(renderer);
 }
 
@@ -330,7 +350,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     Uint64 now = SDL_GetTicksNS();
     Uint64 dt_ns = now - last;
 
-    if (!as->is_paused && !as->upgrade_menu) update(as, dt_ns);
+    if (!as->is_paused && !as->upgrade_menu && as->page == 1) update(as, dt_ns);  // Mettre à jour uniquement sur la page 1 (jeu)
     draw(as, dt_ns);
 
     static Uint64 frame_count = 0;
@@ -402,7 +422,7 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
             as->fonts->poppins_semibold_16 = NULL;
         }
         if (as->fonts->poppins_medium_14) {
-            if (QUIT_LOG)  SDL_Log("Closing poppins_medium_14...");
+            if (QUIT_LOG) SDL_Log("Closing poppins_medium_14...");
             TTF_CloseFont(as->fonts->poppins_medium_14);
             as->fonts->poppins_medium_14 = NULL;
         }
@@ -462,6 +482,12 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
     if (QUIT_LOG) SDL_Log("Cleaning up upgrade menu cursors...");
     cleanupUpgradeMenuCursors();
 
+    if (damageTexture) {
+        if (QUIT_LOG) SDL_Log("Destroying damage texture...");
+        SDL_DestroyTexture(damageTexture);
+        damageTexture = NULL;
+    }
+
     if (as->renderer) {
         if (QUIT_LOG) SDL_Log("Destroying renderer...");
         SDL_DestroyRenderer(as->renderer);
@@ -476,8 +502,12 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
     if (QUIT_LOG) SDL_Log("Shutting down TTF...");
     TTF_Quit();
     if (QUIT_LOG) SDL_Log("Shutting down Mixer...");
-    Mix_FreeMusic(music);
+    if (music) {
+        Mix_FreeMusic(music);
+        music = NULL;
+    }
     Mix_CloseAudio();
+
     if (QUIT_LOG) SDL_Log("Shutting down SDL...");
     SDL_Quit();
 
