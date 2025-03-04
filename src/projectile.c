@@ -4,6 +4,7 @@
 
 #include "../include/projectile.h"
 #include "../include/appstate.h"
+#include "../include/player.h"
 #include "../include/utils.h"
 
 #include "../assets/archer/projectiles/arrow_cold.h"
@@ -109,6 +110,7 @@ void updateProjectiles(void *appstate, int screen_w, int screen_h, float dt) {
                 enemy->active = false;
                 as->current_enemy_number--;
                 as->player->progression_to_next_level = SDL_min(100.0f, as->player->progression_to_next_level + enemy->reward);
+                addCoin(as, enemy->x - enemy->w / 2, enemy->y - enemy->h / 2);
                 break;
             }
         }

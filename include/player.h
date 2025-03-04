@@ -32,6 +32,13 @@ typedef struct {
     Player_Stats *player_stats;
 } Player;
 
+typedef struct {
+    float x;
+    float y;
+    int reward;
+    bool active;
+} Coin;
+
 // Fonction pour initialiser le joueur
 void initPlayer(Player **player);
 
@@ -47,5 +54,9 @@ void cleanupPlayerTextures(void);
 void drawUpgradeMenu(void *data);
 
 void drawGameOver(void *data, float dt);
+
+void addCoin(void *data, float x, float y);
+
+void drawCoins(void *data);
 
 #endif

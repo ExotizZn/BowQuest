@@ -23,6 +23,7 @@ typedef struct AppState {
     SDL_Renderer *renderer;
     Camera *camera;
     Player *player;
+    Coin * coins;
     Projectile *projectiles;
     Enemy *enemies;
     SDL_Thread *enemyThread;
@@ -34,6 +35,7 @@ typedef struct AppState {
     SDL_Texture **skills_assets;
     int projectile_number;
     int current_enemy_number;
+    int coins_number;
     int enemy_number;
     int page;
     Fonts *fonts;

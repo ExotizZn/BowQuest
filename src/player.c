@@ -222,6 +222,7 @@ void updatePlayer(void *data, float dt) {
     Player *player = as->player;
     Enemy *enemies = as->enemies;
     Camera *camera = as->camera;
+    Coin *coins = as->coins;
 
     const int player_speed = player->speed;
     float dx = 0, dy = 0;
@@ -268,6 +269,23 @@ void updatePlayer(void *data, float dt) {
         player->is_hit = false;
     }
     SDL_UnlockMutex(as->enemyMutex);
+
+    for(int i = 0; i < 100; i++) {
+        Coin *coin = &coins[i];
+        if(!coin->active) continue;
+
+        SDL_FRect coin_dest = {
+            .x = coin->x - camera->x,
+            .y = coin->y - camera->y,
+            .w = 50,
+            .h = 50
+        };
+
+        if(SDL_HasRectIntersectionFloat(&player_rect, &coin_dest)) {
+            player->coins += coin->reward;
+            coin->active = false;
+        }
+    }
 
     player->x += dx;
     player->y += dy;
@@ -346,6 +364,8 @@ void drawPlayer(void *data) {
         .h = player->h
     };
 
+    drawCoins(data);
+
     if (current_texture) SDL_RenderTextureRotated(as->renderer, current_texture, NULL, &dest_rect, 0, NULL, flip_mode);
 
     if (as->debug_mode) {
@@ -380,4 +400,50 @@ void drawPlayer(void *data) {
     static char coins[10] = "0";
     SDL_snprintf(coins, sizeof(coins), "%d", as->player->coins);
     drawText(as, coins, as->fonts->poppins_semibold_16, w-100, 30, RGBA(255, 255, 255, 255), false);
+}
+
+void addCoin(void *data, float x, float y) {
+    AppState *as = (AppState *)data;
+    Coin *coins = as->coins;
+
+    for(int i = 0; i < 100; i++) {
+        Coin *coin = &coins[i];
+
+        if(!coin->active) {
+            coin->x = x;
+            coin->y = y;
+            coin->reward = 1;
+            coin->active = true;
+            break;
+        }
+    }
+}
+
+bool is_coin_loaded = false;
+static SDL_Texture *coin_texture = NULL;
+
+void drawCoins(void *data) {
+    AppState *as = (AppState *)data;
+    Coin *coins = as->coins;
+
+    if(!is_coin_loaded) {
+        SDL_Surface *coin_surface = CreateSurfaceFromMemory(coin_png, coin_png_len);
+        coin_texture = SDL_CreateTextureFromSurface(as->renderer, coin_surface);
+        SDL_DestroySurface(coin_surface);
+    }
+
+    for(int i = 0; i < 100; i++) {
+        Coin *coin = &coins[i];
+
+        if(!coin->active) continue;
+
+        SDL_FRect coin_dest = {
+            .x = coin->x - as->camera->x,
+            .y = coin->y - as->camera->y,
+            .w = 50,
+            .h = 50
+        };
+
+        SDL_RenderTexture(as->renderer, coin_texture, NULL, &coin_dest);
+    }
 }

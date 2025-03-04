@@ -70,6 +70,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     }
 
     as->projectiles = SDL_calloc(100, sizeof(Projectile));
+    as->coins = SDL_calloc(100, sizeof(Coin));
     as->enemy_number = 32;
     as->enemies = SDL_calloc(as->enemy_number, sizeof(Enemy));
     as->fonts = SDL_calloc(1, sizeof(Fonts));
@@ -78,6 +79,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
 
     as->projectile_number = 0;
     as->current_enemy_number = 0;
+    as->coins_number = 0;
 
     as->is_paused = false;
     as->upgrade_menu = false;
